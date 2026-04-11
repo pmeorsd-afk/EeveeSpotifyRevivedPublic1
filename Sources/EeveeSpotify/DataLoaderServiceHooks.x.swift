@@ -20,9 +20,23 @@ class SPTDataLoaderServiceHook: ClassHook<NSObject>, SpotifySessionDelegate {
     // orion:new
     func shouldBlock(_ url: URL) -> Bool {
         let elapsed = Date().timeIntervalSince(tweakInitTime)
+        let path = url.path.lowercased()
         
-        // Always block explicit session destroy/token delete
-        if url.isDeleteToken || url.isSessionInvalidation || url.path.contains("session/purge") || url.path.contains("token/revoke") {
+        // Always block explicit session destroy/token delete or ad-related requests
+        if url.isDeleteToken || url.isSessionInvalidation || path.contains("session/purge") || path.contains("token/revoke") || url.isAdRelated {
+            return true
+        }
+        
+        // Block all DAC (Display Ad Container) ad requests.
+        // The DAC endpoint delivers the search-page and home-page display ads
+        // (e.g. Cartier on Search, Ross on Home shown in the screenshots).
+        // Any /dac/view/v1/ request is ad-related; return empty to suppress.
+        if path.contains("/dac/view/v1/") {
+            return true
+        }
+
+        // Block the Esperanto ad slot service used for in-stream and overlay ads
+        if path.contains("/esperanto/") && (path.contains("ad") || path.contains("slot")) {
             return true
         }
 
@@ -32,6 +46,12 @@ class SPTDataLoaderServiceHook: ClassHook<NSObject>, SpotifySessionDelegate {
                 || url.isTrialsFacade || url.isPremiumMarketing || url.isPendragonFetchMessageList
                 || url.isPushkaTokens || url.path.contains("signup/public") || url.path.contains("apresolve")
                 || url.path.contains("pses/screenconfig") || url.path.contains("bootstrap/v1/bootstrap")
+                // Block periodic customize re-fetches (RemoteConfigurationSDK AuthFetcher).
+                // The AuthFetcher re-fetches v1/customize after minimumFetchIntervalSeconds
+                // (typically a few hours). If this re-fetch is not intercepted and modified,
+                // the app re-enables ad feature flags from the server response.
+                // We block re-fetches here; the cached modified data is served via the 304 path.
+                || url.path.contains("v1/customize")
         }
         
         return false
@@ -43,11 +63,11 @@ class SPTDataLoaderServiceHook: ClassHook<NSObject>, SpotifySessionDelegate {
         let shouldReplaceLyrics = BaseLyricsGroup.isActive
         
         let isLyricsURL = url.isLyrics
-        if isLyricsURL {
-        }
+        let path = url.path.lowercased()
+        let isDAC = path.contains("/dac/view/v1/")
         
         return (shouldReplaceLyrics && isLyricsURL)
-            || (shouldPatchPremium && (url.isCustomize || url.isPremiumPlanRow || url.isPremiumBadge || url.isPlanOverview))
+            || (shouldPatchPremium && (url.isCustomize || url.isPremiumPlanRow || url.isPremiumBadge || url.isPlanOverview || isDAC))
     }
     
     // orion:new
@@ -84,6 +104,21 @@ class SPTDataLoaderServiceHook: ClassHook<NSObject>, SpotifySessionDelegate {
             respondWithCustomData("{}".data(using: .utf8)!, task: task, session: session)
         } else if url.path.contains("bootstrap/v1/bootstrap") {
             respondWithCustomData("{}".data(using: .utf8)!, task: task, session: session)
+        } else if url.isAdRelated {
+            respondWithCustomData(Data(), task: task, session: session)
+        } else if url.path.lowercased().contains("/dac/view/v1/") {
+            // Return empty data for DAC ad requests
+            respondWithCustomData(Data(), task: task, session: session)
+        } else if url.path.lowercased().contains("/esperanto/") {
+            // Return empty data for Esperanto ad slot requests
+            respondWithCustomData(Data(), task: task, session: session)
+        } else if url.path.contains("v1/customize") {
+            // Serve the cached modified customize data for periodic re-fetches
+            if let cached = SPTDataLoaderServiceHook.cachedCustomizeData {
+                respondWithCustomData(cached, task: task, session: session)
+            } else {
+                respondWithCustomData(Data(), task: task, session: session)
+            }
         }
         orig.URLSession(session, task: task, didCompleteWithError: nil)
     }
@@ -100,7 +135,7 @@ class SPTDataLoaderServiceHook: ClassHook<NSObject>, SpotifySessionDelegate {
            auth.hasPrefix("Bearer ") {
             spotifyAccessToken = String(auth.dropFirst(7))
         }
-
+	
         guard let url = task.currentRequest?.url else {
             orig.URLSession(session, task: task, didCompleteWithError: error)
             return
@@ -132,16 +167,13 @@ class SPTDataLoaderServiceHook: ClassHook<NSObject>, SpotifySessionDelegate {
             return
         }
         
-        
         do {
             if url.isLyrics {
-                
                 let originalLyrics = try? Lyrics(serializedBytes: buffer)
                 
                 // Try to fetch custom lyrics with a timeout
                 let semaphore = DispatchSemaphore(value: 0)
                 var customLyricsData: Data?
-                var customLyricsError: Error?
                 
                 DispatchQueue.global(qos: .userInitiated).async {
                     do {
@@ -150,43 +182,19 @@ class SPTDataLoaderServiceHook: ClassHook<NSObject>, SpotifySessionDelegate {
                             originalLyrics: originalLyrics
                         )
                     } catch {
-                        customLyricsError = error
                     }
                     semaphore.signal()
                 }
                 
-                // Wait up to 5 seconds for custom lyrics (cached LRCLIB responses are instant)
+                // Wait up to 5 seconds for custom lyrics
                 let timeout = DispatchTime.now() + .milliseconds(5000)
                 let result = semaphore.wait(timeout: timeout)
                 
                 if result == .success, let data = customLyricsData {
                     respondWithCustomData(data, task: task, session: session)
-                    
-                    // Show popup indicating custom lyrics source - DISABLED FOR PRODUCTION
-                    // DispatchQueue.main.async {
-                    //     PopUpHelper.showPopUp(
-                    //         message: "🎵 Using \(UserDefaults.lyricsSource.description) lyrics",
-                    //         buttonText: "OK"
-                    //     )
-                    // }
-                    
-                    // Complete the request
                     orig.URLSession(session, task: task, didCompleteWithError: nil)
                 } else {
-                    if result == .timedOut {
-                    } else {
-                    }
                     respondWithCustomData(buffer, task: task, session: session)
-                    
-                    // Show popup indicating fallback to original - DISABLED FOR PRODUCTION
-                    // DispatchQueue.main.async {
-                    //     PopUpHelper.showPopUp(
-                    //         message: result == .timedOut ? "⏱️ Using Spotify Original (timeout)" : "🎵 Using Spotify Original",
-                    //         buttonText: "OK"
-                    //     )
-                    // }
-                    
-                    // Complete the request
                     orig.URLSession(session, task: task, didCompleteWithError: nil)
                 }
                 return
@@ -222,6 +230,15 @@ class SPTDataLoaderServiceHook: ClassHook<NSObject>, SpotifySessionDelegate {
             
             if url.isPlanOverview {
                 respondWithCustomData(try getPlanOverviewData(), task: task, session: session)
+                orig.URLSession(session, task: task, didCompleteWithError: nil)
+                return
+            }
+
+            if url.path.lowercased().contains("/dac/view/v1/") {
+                // For DAC responses, we return an empty valid response to hide ads/upsells
+                // Most DAC endpoints expect a protobuf or JSON response.
+                // Returning empty data or a minimal valid object is safer than blocking.
+                respondWithCustomData(Data(), task: task, session: session)
                 orig.URLSession(session, task: task, didCompleteWithError: nil)
                 return
             }
