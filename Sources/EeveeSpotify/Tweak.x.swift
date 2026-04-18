@@ -84,7 +84,7 @@ func activatePremiumPatchingGroup() {
 // Guard each hook group behind runtime checks so minor Spotify updates
 // (e.g., 9.1.34 -> 9.1.36) don't crash the app at launch due to
 // missing private selectors.
-func activateSessionLogoutProtection() {
+func activateSessionLogoutProtection(minimal: Bool) {
     func log(_ msg: String) {
         NSLog("[EeveeSpotify][SessionProtect] %@", msg)
     }
@@ -92,6 +92,18 @@ func activateSessionLogoutProtection() {
     @inline(__always)
     func classHasInstanceMethod(_ cls: AnyClass, _ sel: Selector) -> Bool {
         return class_getInstanceMethod(cls, sel) != nil
+    }
+
+    if minimal {
+        // Only the URLSessionTask hook (used for diagnostics + cancelling revoke endpoints)
+        // tends to be stable across minor versions.
+        if let cls = NSClassFromString("NSURLSessionTask"), classHasInstanceMethod(cls, #selector(URLSessionTask.resume)) {
+            SessionLogoutNetworkHookGroup().activate()
+            log("Activated URLSessionTask hooks (minimal)")
+        } else {
+            log("Skipped URLSessionTask hooks (missing selector)")
+        }
+        return
     }
 
     // Auth hooks
@@ -181,9 +193,15 @@ struct EeveeSpotify: Tweak {
     }
     
     init() {
-        // Activate session logout protection first (all versions)
-        // (Guarded to avoid launch crashes on minor Spotify updates)
-        activateSessionLogoutProtection()
+        // Activate session logout protection first.
+        // NOTE: On some Spotify 9.1.x builds, Orion can still crash even if a selector exists
+        // (e.g., method type encoding changes). Be conservative for 9.1.x.
+        if EeveeSpotify.hookTarget == .v91 {
+            // Minimal protection only (safest hook)
+            activateSessionLogoutProtection(minimal: true)
+        } else {
+            activateSessionLogoutProtection(minimal: false)
+        }
 
         let spotifyVersion = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
         let spotifyBuild = Bundle.main.infoDictionary!["CFBundleVersion"] as? String ?? "?"
