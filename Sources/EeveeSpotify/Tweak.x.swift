@@ -89,6 +89,11 @@ func activateSessionLogoutProtection() {
         NSLog("[EeveeSpotify][SessionProtect] %@", msg)
     }
 
+    @inline(__always)
+    func classHasInstanceMethod(_ cls: AnyClass, _ sel: Selector) -> Bool {
+        return class_getInstanceMethod(cls, sel) != nil
+    }
+
     // Auth hooks
     if let cls = NSClassFromString("SPTAuthSessionImplementation") {
         let required: [Selector] = [
@@ -98,7 +103,7 @@ func activateSessionLogoutProtection() {
             Selector(("logWillLogoutEventWithLogoutReason:")),
             Selector(("destroy")),
         ]
-        let ok = required.allSatisfy { (cls as AnyObject).instancesRespond(to: $0) }
+        let ok = required.allSatisfy { classHasInstanceMethod(cls, $0) }
         if ok {
             SessionLogoutAuthHookGroup().activate()
             log("Activated auth hooks")
@@ -116,7 +121,7 @@ func activateSessionLogoutProtection() {
             Selector(("userInitiatedLogout")),
             Selector(("sessionDidLogout:withReason:")),
         ]
-        let ok = required.allSatisfy { (cls as AnyObject).instancesRespond(to: $0) }
+        let ok = required.allSatisfy { classHasInstanceMethod(cls, $0) }
         if ok {
             SessionLogoutConnectivityHookGroup().activate()
             log("Activated connectivity hooks")
@@ -133,7 +138,7 @@ func activateSessionLogoutProtection() {
             Selector(("webSocket:didReceiveMessage:")),
             Selector(("webSocket:didFailWithError:")),
         ]
-        let ok = required.allSatisfy { (cls as AnyObject).instancesRespond(to: $0) }
+        let ok = required.allSatisfy { classHasInstanceMethod(cls, $0) }
         if ok {
             SessionLogoutAblyHookGroup().activate()
             log("Activated Ably hooks")
@@ -145,7 +150,7 @@ func activateSessionLogoutProtection() {
     }
 
     // Network hooks
-    if let cls = NSClassFromString("NSURLSessionTask"), (cls as AnyObject).instancesRespond(to: #selector(URLSessionTask.resume)) {
+    if let cls = NSClassFromString("NSURLSessionTask"), classHasInstanceMethod(cls, #selector(URLSessionTask.resume)) {
         SessionLogoutNetworkHookGroup().activate()
         log("Activated URLSessionTask hooks")
     } else {
