@@ -36,7 +36,9 @@ extension UserDefaults {
                 return EeveePatchType(rawValue: rawValue) ?? .requests
             }
 
-            return .notSet
+            // If the key is missing (fresh install / "reset data"), default to patching.
+            // This avoids users silently falling back to Free tier.
+            return .requests
         }
         set (patchType) {
             container.set(patchType.rawValue, forKey: patchTypeKey)
