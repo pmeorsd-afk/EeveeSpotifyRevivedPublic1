@@ -9,6 +9,9 @@ private func showHavePremiumPopUp() {
 }
 
 class SpotifySessionDelegateBootstrapHook: ClassHook<NSObject>, SpotifySessionDelegate {
+    // This hook is the *core* of premium patching (intercepts bootstrap and mutates UCS).
+    // It MUST be active on 9.1.x too, otherwise users will remain Free / revert after reset.
+    typealias Group = BasePremiumPatchingGroup
     static var targetName: String {
         switch EeveeSpotify.hookTarget {
         case .lastAvailableiOS14: return "SPTCoreURLSessionDataDelegate"
