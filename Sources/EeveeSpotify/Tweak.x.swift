@@ -222,6 +222,9 @@ struct EeveeSpotify: Tweak {
     
     init() {
         eeveeBreadcrumb("Tweak init() entered")
+        // Reset per-launch bootstrap state; this MUST NOT persist across restarts.
+        // Otherwise Spotify can get stuck on splash because bootstrap is cancelled.
+        UserDefaults.hasPatchedBootstrap = false
 
         // Global kill-switch for debugging “instant crash / no logs”.
         // If setting this makes Spotify launch, the crash is definitely in one of our hook activations.
