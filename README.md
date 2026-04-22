@@ -2,9 +2,9 @@
 
 # EeveeSpotify
 
-**Updated and maintained by Skye - Current Version 9.1.28**
+**Updated and maintained by Skye & jaydenjcpy  - Current Version 9.1.40**
 
-**Last updated 3/12/26**
+**Last updated 4/22/26**
 
 This tweak makes Spotify think you have a Premium subscription, granting free listening, just like Spotilife, and provides some additional features like custom lyrics.
 
@@ -13,7 +13,7 @@ This tweak makes Spotify think you have a Premium subscription, granting free li
 
 ## Custom Lyrics Support
 
-**Spotify 9.1.28** - Full custom lyrics functionality is available with the following provider:
+**Spotify 9.1.40** - Full custom lyrics functionality is available with the following provider:
 
 - **Musixmatch** (Currently enabled)
 
@@ -82,7 +82,7 @@ For sideloaded IPAs, we recommend using **Sideloadly** or certificate-based sign
 
 To open Spotify links in sideloaded app, use [OpenSpotifySafariExtension](https://github.com/BillyCurtis/OpenSpotifySafariExtension). Remember to activate it and allow access in Settings > Safari > Extensions.
 
-## Donations
+## Donations to Meep1
 
 USDC (ETH)
 
