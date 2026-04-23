@@ -164,3 +164,61 @@ struct EeveeSpotify: Tweak {
         UniversalSettingsIntegrationSettingsVCGroup().activate()
     }
 }
+class AviSplashHandler: NSObject {
+    static let shared = AviSplashHandler()
+    weak var view: UIView?
+
+    @objc func dismiss() {
+        guard let view = view else { return }
+        UIView.animate(withDuration: 0.4) {
+            view.alpha = 0
+        } completion: { _ in
+            view.removeFromSuperview()
+        }
+    }
+}
+
+func showAviSplash() {
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        guard let window = UIApplication.shared.windows.first(where: { $0.isKeyWindow }) else { return }
+
+        let splash = UIView(frame: window.bounds)
+        splash.backgroundColor = UIColor.black
+        splash.alpha = 0
+        window.addSubview(splash)
+
+        AviSplashHandler.shared.view = splash
+
+        let label = UILabel(frame: CGRect(x: 0, y: 150, width: splash.frame.width, height: 40))
+        label.text = "Welcome 👋"
+        label.textAlignment = .center
+        label.textColor = .white
+        splash.addSubview(label)
+
+        let button = UIButton(frame: CGRect(x: 40, y: splash.frame.height - 120, width: splash.frame.width - 80, height: 50))
+        button.setTitle("Close", for: .normal)
+        button.backgroundColor = .red
+        button.layer.cornerRadius = 10
+        button.addTarget(AviSplashHandler.shared,
+                         action: #selector(AviSplashHandler.dismiss),
+                         for: .touchUpInside)
+        splash.addSubview(button)
+
+        UIView.animate(withDuration: 0.5) {
+            splash.alpha = 1
+        }
+    }
+}
+
+class SplashHook: ClassHook<UIViewController> {
+    static var shown = false
+
+    func viewDidAppear(_ animated: Bool) {
+        orig.viewDidAppear(animated)
+
+        if !Self.shown {
+            Self.shown = true
+            showAviSplash()
+        }
+    }
+}
