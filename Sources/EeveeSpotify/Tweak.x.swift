@@ -4,17 +4,64 @@ import UIKit
 import Foundation
 import ObjectiveC.runtime
 
-// MARK: - Avi Splash View Controller (הדרך הבטוחה והרשמית להציג מסך)
+// MARK: - Splash Manager (הדרך העצמאית לחלוטין - חלון מרחף)
+class AviSplashManager: NSObject {
+    static let shared = AviSplashManager()
+    var splashWindow: UIWindow? // שומר על החלון שלנו באוויר
+    var hasShown = false // מוודא שזה יקפוץ רק פעם אחת בהפעלה
+
+    @objc func appDidBecomeActive() {
+        if !hasShown {
+            hasShown = true
+            // מחכים שניה אחרי שהאפליקציה כבר עלתה לגמרי ומוכנה לשימוש
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.showFloatingWindow()
+            }
+        }
+    }
+
+    func showFloatingWindow() {
+        // מציאת הסצנה הפעילה (iOS 13 ומעלה)
+        guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
+        
+        // יצירת חלון חדש משלנו, שלא קשור לספוטיפיי!
+        let window = UIWindow(windowScene: windowScene)
+        window.windowLevel = UIWindow.Level.alert + 1 // מרחף מעל ה-כ-ל (אפילו מעל התראות)
+        window.backgroundColor = .clear
+        
+        let vc = AviSplashViewController()
+        window.rootViewController = vc
+        
+        // הצגה
+        window.makeKeyAndVisible()
+        window.alpha = 0
+        self.splashWindow = window
+        
+        UIView.animate(withDuration: 0.5) {
+            window.alpha = 1
+        }
+    }
+
+    func hideFloatingWindow() {
+        UIView.animate(withDuration: 0.4, animations: {
+            self.splashWindow?.alpha = 0
+        }) { _ in
+            self.splashWindow?.isHidden = true
+            self.splashWindow = nil // מחיקת החלון מהזיכרון והחזרת השליטה לספוטיפיי
+        }
+    }
+}
+
+// MARK: - Avi Splash View Controller
 class AviSplashViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // צבע רקע
         view.backgroundColor = UIColor(white: 0.1, alpha: 1.0)
         
         // כותרת
-        let titleLabel = UILabel(frame: CGRect(x: 0, y: 100, width: view.frame.width, height: 40))
+        let titleLabel = UILabel(frame: CGRect(x: 0, y: 100, width: view.bounds.width, height: 40))
         titleLabel.text = "Welcome 👋"
         titleLabel.textColor = .white
         titleLabel.font = .boldSystemFont(ofSize: 30)
@@ -23,7 +70,7 @@ class AviSplashViewController: UIViewController {
         view.addSubview(titleLabel)
 
         // תת כותרת
-        let subLabel = UILabel(frame: CGRect(x: 0, y: 145, width: view.frame.width, height: 30))
+        let subLabel = UILabel(frame: CGRect(x: 0, y: 145, width: view.bounds.width, height: 30))
         subLabel.text = "Cracked By Avi Miara ❄️"
         subLabel.textColor = .lightGray
         subLabel.font = .systemFont(ofSize: 18)
@@ -32,28 +79,21 @@ class AviSplashViewController: UIViewController {
         view.addSubview(subLabel)
 
         // לוגו
-        let logo = UIImageView(frame: CGRect(
-            x: (view.frame.width - 150) / 2,
-            y: (view.frame.height - 150) / 2,
-            width: 150,
-            height: 150
-        ))
+        let logo = UIImageView(frame: CGRect(x: (view.bounds.width - 150) / 2, y: (view.bounds.height - 150) / 2, width: 150, height: 150))
         logo.contentMode = .scaleAspectFit
         logo.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin]
         view.addSubview(logo)
 
-        // הורדת התמונה מהאינטרנט בצורה בטוחה
         if let url = URL(string: "https://files.catbox.moe/55j2aa.png") {
             URLSession.shared.dataTask(with: url) { data, _, _ in
-                guard let data = data, let image = UIImage(data: data) else { return }
-                DispatchQueue.main.async {
-                    logo.image = image
+                if let data = data, let image = UIImage(data: data) {
+                    DispatchQueue.main.async { logo.image = image }
                 }
             }.resume()
         }
 
         // כפתור טלגרם
-        let btnTel = UIButton(frame: CGRect(x: 40, y: view.frame.height - 160, width: view.frame.width - 80, height: 50))
+        let btnTel = UIButton(frame: CGRect(x: 40, y: view.bounds.height - 160, width: view.bounds.width - 80, height: 50))
         btnTel.setTitle("My Telegram 👾", for: .normal)
         btnTel.backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0)
         btnTel.layer.cornerRadius = 15
@@ -62,67 +102,31 @@ class AviSplashViewController: UIViewController {
         view.addSubview(btnTel)
 
         // כפתור סגירה
-        let btnClose = UIButton(frame: CGRect(x: 40, y: view.frame.height - 90, width: view.frame.width - 80, height: 50))
+        let btnClose = UIButton(frame: CGRect(x: 40, y: view.bounds.height - 90, width: view.bounds.width - 80, height: 50))
         btnClose.setTitle("Close", for: .normal)
         btnClose.backgroundColor = UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0)
         btnClose.layer.cornerRadius = 15
         btnClose.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
-        btnClose.addTarget(self, action: #selector(dismissSplash), for: .touchUpInside)
+        btnClose.addTarget(self, action: #selector(closeSplash), for: .touchUpInside)
         view.addSubview(btnClose)
     }
     
     @objc func openTelegram() {
         if let url = URL(string: "https://t.me/IL_Apk") {
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            UIApplication.shared.open(url)
         }
     }
     
-    @objc func dismissSplash() {
-        self.dismiss(animated: true, completion: nil)
-    }
-}
-
-// MARK: - Splash Manager
-class AviSplashManager: NSObject {
-    static let shared = AviSplashManager()
-
-    @objc func appDidLaunch() {
-        // מחכים 1.5 שניות שספוטיפיי תירגע ותטען את עצמה
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            self.presentSplashSafely()
-        }
-    }
-
-    func presentSplashSafely() {
-        // מוצאים את המסך העליון ביותר של האפליקציה בצורה בטוחה
-        guard let window = UIApplication.shared.windows.first(where: { $0.isKeyWindow }),
-              let rootVC = window.rootViewController else { return }
-        
-        var topController = rootVC
-        while let presented = topController.presentedViewController {
-            topController = presented
-        }
-        
-        // יצירת המסך המעוצב שלנו
-        let splashVC = AviSplashViewController()
-        splashVC.modalPresentationStyle = .overFullScreen // מכסה הכל
-        splashVC.modalTransitionStyle = .crossDissolve // אנימציה של התבהרות עדינה
-        
-        // הצגה בטוחה על המסך
-        topController.present(splashVC, animated: true, completion: nil)
+    @objc func closeSplash() {
+        AviSplashManager.shared.hideFloatingWindow()
     }
 }
 
 // MARK: - Original EeveeSpotify Logic
-func writeDebugLog(_ message: String) {
-    NSLog("[EeveeSpotify] %@", message)
-}
+func writeDebugLog(_ message: String) { NSLog("[EeveeSpotify] %@", message) }
 
 let tweakInitTime: Date = {
-    if let existing = getenv("EEVEE_BOOT_TIME"),
-       let interval = Double(String(cString: existing)) {
-        return Date(timeIntervalSince1970: interval)
-    }
+    if let existing = getenv("EEVEE_BOOT_TIME"), let interval = Double(String(cString: existing)) { return Date(timeIntervalSince1970: interval) }
     let now = Date()
     setenv("EEVEE_BOOT_TIME", "\(now.timeIntervalSince1970)", 1)
     return now
@@ -130,9 +134,7 @@ let tweakInitTime: Date = {
 
 func exitApplication() {
     UIControl().sendAction(#selector(URLSessionTask.suspend), to: UIApplication.shared, for: nil)
-    Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { _ in
-        exit(EXIT_SUCCESS)
-    }
+    Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { _ in exit(EXIT_SUCCESS) }
 }
 
 struct PremiumBootstrapGroup: HookGroup { }
@@ -146,63 +148,42 @@ struct LatestPremiumPatchingGroup: HookGroup { }
 
 func activatePremiumPatchingGroup() {
     BasePremiumPatchingGroup().activate()
-    if EeveeSpotify.hookTarget == .lastAvailableiOS14 {
-        IOS14PremiumPatchingGroup().activate()
-    } else if EeveeSpotify.hookTarget == .v91 {
+    if EeveeSpotify.hookTarget == .lastAvailableiOS14 { IOS14PremiumPatchingGroup().activate() }
+    else if EeveeSpotify.hookTarget == .v91 {
         NonIOS14PremiumPatchingGroup().activate()
         let trackRowsSel = Selector(("initWithViewURI:onDemandSet:onDemandTrialService:trackRowsEnabled:productState:"))
-        if UIView.instancesRespond(to: trackRowsSel) {
-            V91PremiumPatchingGroup().activate()
-        }
+        if UIView.instancesRespond(to: trackRowsSel) { V91PremiumPatchingGroup().activate() }
     } else {
         NonIOS14PremiumPatchingGroup().activate()
-        if EeveeSpotify.hookTarget == .lastAvailableiOS15 {
-            IOS14And15PremiumPatchingGroup().activate()
-        } else {
-            LatestPremiumPatchingGroup().activate()
-        }
+        if EeveeSpotify.hookTarget == .lastAvailableiOS15 { IOS14And15PremiumPatchingGroup().activate() }
+        else { LatestPremiumPatchingGroup().activate() }
     }
 }
 
 func activateSessionLogoutProtection(minimal: Bool) {
-    @inline(__always) func classHasInstanceMethod(_ cls: AnyClass, _ sel: Selector) -> Bool {
-        return class_getInstanceMethod(cls, sel) != nil
-    }
-
+    @inline(__always) func classHasInstanceMethod(_ cls: AnyClass, _ sel: Selector) -> Bool { return class_getInstanceMethod(cls, sel) != nil }
     if minimal {
-        if let cls = NSClassFromString("NSURLSessionTask"), classHasInstanceMethod(cls, #selector(URLSessionTask.resume)) {
-            SessionLogoutNetworkHookGroup().activate()
-        }
+        if let cls = NSClassFromString("NSURLSessionTask"), classHasInstanceMethod(cls, #selector(URLSessionTask.resume)) { SessionLogoutNetworkHookGroup().activate() }
         return
     }
-
     if let cls = NSClassFromString("SPTAuthSessionImplementation") {
         let required: [Selector] = [ Selector(("logout")), Selector(("logoutWithReason:")), Selector(("callSessionDidLogoutOnDelegateWithReason:")), Selector(("logWillLogoutEventWithLogoutReason:")), Selector(("destroy")) ]
-        if required.allSatisfy({ classHasInstanceMethod(cls, $0) }) {
-            SessionLogoutAuthHookGroup().activate()
-        }
+        if required.allSatisfy({ classHasInstanceMethod(cls, $0) }) { SessionLogoutAuthHookGroup().activate() }
     }
     if let cls = NSClassFromString("_TtC24Connectivity_SessionImpl18SessionServiceImpl") {
         let required: [Selector] = [ Selector(("automatedLogoutThenLogin")), Selector(("userInitiatedLogout")), Selector(("sessionDidLogout:withReason:")) ]
-        if required.allSatisfy({ classHasInstanceMethod(cls, $0) }) {
-            SessionLogoutConnectivityHookGroup().activate()
-        }
+        if required.allSatisfy({ classHasInstanceMethod(cls, $0) }) { SessionLogoutConnectivityHookGroup().activate() }
     }
     if let cls = NSClassFromString("ARTWebSocketTransport") {
         let required: [Selector] = [ Selector(("webSocket:didReceiveMessage:")), Selector(("webSocket:didFailWithError:")) ]
-        if required.allSatisfy({ classHasInstanceMethod(cls, $0) }) {
-            SessionLogoutAblyHookGroup().activate()
-        }
+        if required.allSatisfy({ classHasInstanceMethod(cls, $0) }) { SessionLogoutAblyHookGroup().activate() }
     }
-    if let cls = NSClassFromString("NSURLSessionTask"), classHasInstanceMethod(cls, #selector(URLSessionTask.resume)) {
-        SessionLogoutNetworkHookGroup().activate()
-    }
+    if let cls = NSClassFromString("NSURLSessionTask"), classHasInstanceMethod(cls, #selector(URLSessionTask.resume)) { SessionLogoutNetworkHookGroup().activate() }
 }
 
 @inline(__always) func eeveeEnvFlag(_ name: String) -> Bool {
     guard let v = getenv(name) else { return false }
-    let s = String(cString: v).lowercased()
-    return s == "1" || s == "true" || s == "yes" || s == "y"
+    return String(cString: v).lowercased() == "1" || String(cString: v).lowercased() == "true"
 }
 
 struct EeveeSpotify: Tweak {
@@ -220,11 +201,11 @@ struct EeveeSpotify: Tweak {
     }
     
     init() {
-        // תחילת העבודה של המסך שלנו
+        // שינוי קריטי: האזנה להתעוררות מלאה של האפליקציה (didBecomeActive)
         NotificationCenter.default.addObserver(
             AviSplashManager.shared,
-            selector: #selector(AviSplashManager.appDidLaunch),
-            name: UIApplication.didFinishLaunchingNotification,
+            selector: #selector(AviSplashManager.appDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
 
