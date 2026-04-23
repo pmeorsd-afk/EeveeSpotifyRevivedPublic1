@@ -4,116 +4,113 @@ import UIKit
 import Foundation
 import ObjectiveC.runtime
 
-// פונקציית עזר להצגת מסך הפתיחה המעוצב
+// MARK: - Splash Screen Logic
 func showAviSplashScreen() {
     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
         guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = scene.windows.first else { return }
 
-        // יצירת רקע שחור על כל המסך
         let splashView = UIView(frame: window.bounds)
-        splashView.backgroundColor = .black
+        splashView.backgroundColor = UIColor(white: 0.1, alpha: 1.0)
         splashView.alpha = 0
         window.addSubview(splashView)
 
-        // הוספת הלוגו מהלינק שלך
         let logoImageView = UIImageView()
         logoImageView.contentMode = .scaleAspectFit
         logoImageView.translatesAutoresizingMaskIntoConstraints = false
         splashView.addSubview(logoImageView)
 
-        // הורדת הלוגו מהקישור שהבאת
         if let url = URL(string: "https://files.catbox.moe/55j2aa.png") {
             URLSession.shared.dataTask(with: url) { data, _, _ in
                 if let data = data, let image = UIImage(data: data) {
-                    DispatchQueue.main.async {
-                        logoImageView.image = image
-                    }
+                    DispatchQueue.main.async { logoImageView.image = image }
                 }
             }.resume()
         }
 
-        // טקסט כותרת
         let titleLabel = UILabel()
-        titleLabel.text = "נבנה על ידי אפליקציות פרוצות לאייפון!"
+        titleLabel.text = "Welcome 👋"
         titleLabel.textColor = .white
-        titleLabel.font = UIFont.boldSystemFont(ofSize: 22)
+        titleLabel.font = UIFont.boldSystemFont(ofSize: 28)
         titleLabel.textAlignment = .center
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         splashView.addSubview(titleLabel)
 
-        // כפתור מעוצב לטלגרם
+        let subtitleLabel = UILabel()
+        subtitleLabel.text = "Cracked By Avi Miara ❄️"
+        subtitleLabel.textColor = .lightGray
+        subtitleLabel.font = UIFont.systemFont(ofSize: 16)
+        subtitleLabel.textAlignment = .center
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        splashView.addSubview(subtitleLabel)
+
         let telegramButton = UIButton(type: .system)
-        telegramButton.setTitle("כנסו לטלגרם שלנו לעדכונים", for: .normal)
+        telegramButton.setTitle("My Telegram 👾", for: .normal)
         telegramButton.titleLabel?.font = UIFont.boldSystemFont(ofSize: 18)
         telegramButton.setTitleColor(.white, for: .normal)
-        telegramButton.backgroundColor = UIColor(red: 0.0, green: 0.5, blue: 1.0, alpha: 1.0) // כחול טלגרם
+        telegramButton.backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0)
         telegramButton.layer.cornerRadius = 12
         telegramButton.translatesAutoresizingMaskIntoConstraints = false
-        telegramButton.addTarget(Closure {
-            if let url = URL(string: "https://t.me/IL_Apk") {
-                UIApplication.shared.open(url)
-            }
-        }, action: #selector(Closure.execute), for: .touchUpInside)
         splashView.addSubview(telegramButton)
 
-        // כפתור סגירה קטן למטה
         let closeButton = UIButton(type: .system)
-        closeButton.setTitle("המשך לספוטיפיי", for: .normal)
-        closeButton.setTitleColor(.lightGray, for: .normal)
+        closeButton.setTitle("Close", for: .normal)
+        closeButton.titleLabel?.font = UIFont.boldSystemFont(ofSize: 18)
+        closeButton.setTitleColor(.white, for: .normal)
+        closeButton.backgroundColor = UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0)
+        closeButton.layer.cornerRadius = 12
         closeButton.translatesAutoresizingMaskIntoConstraints = false
-        closeButton.addTarget(Closure {
-            UIView.animate(withDuration: 0.5, animations: {
-                splashView.alpha = 0
-            }) { _ in
-                splashView.removeFromSuperview()
-            }
-        }, action: #selector(Closure.execute), for: .touchUpInside)
         splashView.addSubview(closeButton)
 
-        // הגדרת מיקומים (Constraints)
         NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: splashView.safeAreaLayoutGuide.topAnchor, constant: 60),
+            titleLabel.centerXAnchor.constraint(equalTo: splashView.centerXAnchor),
+
+            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
+            subtitleLabel.centerXAnchor.constraint(equalTo: splashView.centerXAnchor),
+
             logoImageView.centerXAnchor.constraint(equalTo: splashView.centerXAnchor),
-            logoImageView.centerYAnchor.constraint(equalTo: splashView.centerYAnchor, constant: -50),
-            logoImageView.widthAnchor.constraint(equalToConstant: 180),
-            logoImageView.heightAnchor.constraint(equalToConstant: 180),
+            logoImageView.centerYAnchor.constraint(equalTo: splashView.centerYAnchor, constant: -20),
+            logoImageView.widthAnchor.constraint(equalToConstant: 150),
+            logoImageView.heightAnchor.constraint(equalToConstant: 150),
 
-            titleLabel.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 30),
-            titleLabel.leadingAnchor.constraint(equalTo: splashView.leadingAnchor, constant: 20),
-            titleLabel.trailingAnchor.constraint(equalTo: splashView.trailingAnchor, constant: -20),
+            closeButton.bottomAnchor.constraint(equalTo: splashView.safeAreaLayoutGuide.bottomAnchor, constant: -40),
+            closeButton.centerXAnchor.constraint(equalTo: splashView.centerXAnchor),
+            closeButton.widthAnchor.constraint(equalTo: splashView.widthAnchor, multiplier: 0.8),
+            closeButton.heightAnchor.constraint(equalToConstant: 50),
 
-            telegramButton.bottomAnchor.constraint(equalTo: closeButton.topAnchor, constant: -20),
+            telegramButton.bottomAnchor.constraint(equalTo: closeButton.topAnchor, constant: -15),
             telegramButton.centerXAnchor.constraint(equalTo: splashView.centerXAnchor),
-            telegramButton.widthAnchor.constraint(equalToConstant: 280),
-            telegramButton.heightAnchor.constraint(equalToConstant: 55),
-
-            closeButton.bottomAnchor.constraint(equalTo: splashView.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-            closeButton.centerXAnchor.constraint(equalTo: splashView.centerXAnchor)
+            telegramButton.widthAnchor.constraint(equalTo: splashView.widthAnchor, multiplier: 0.8),
+            telegramButton.heightAnchor.constraint(equalToConstant: 50)
         ])
 
-        // אנימציית כניסה
-        UIView.animate(withDuration: 0.5) {
-            splashView.alpha = 1
-        }
+        telegramButton.addTarget(ButtonHandler.shared, action: #selector(ButtonHandler.openTelegram), for: .touchUpInside)
+        closeButton.addTarget(ButtonHandler.shared, action: #selector(ButtonHandler.dismissSplash), for: .touchUpInside)
+        ButtonHandler.shared.viewToDismiss = splashView
+
+        UIView.animate(withDuration: 0.5) { splashView.alpha = 1 }
     }
 }
 
-// קלאס עזר לטיפול בלחיצות כפתור
-class Closure: NSObject {
-    let closure: () -> Void
-    init(_ closure: @escaping () -> Void) { self.closure = closure }
-    @objc func execute() { closure() }
+class ButtonHandler: NSObject {
+    static let shared = ButtonHandler()
+    var viewToDismiss: UIView?
+    @objc func openTelegram() { if let url = URL(string: "https://t.me/IL_Apk") { UIApplication.shared.open(url) } }
+    @objc func dismissSplash() { UIView.animate(withDuration: 0.4, animations: { self.viewToDismiss?.alpha = 0 }) { _ in self.viewToDismiss?.removeFromSuperview() } }
 }
 
-// שאר הקוד המקורי של המוד (מקוצר לצורך ההסבר, אל תמחק את מה ששלחתי לך קודם בחלק הזה)
+// MARK: - Tweak Core
 struct EeveeSpotify: Tweak {
     static let version = "6.6.2"
-    
     init() {
-        showAviSplashScreen() // קריאה למסך הפתיחה המעוצב
-        // ... (כאן יבוא שאר קוד ה-init המקורי ששלחתי לך קודם)
+        showAviSplashScreen()
+        UserDefaults.hasPatchedBootstrap = false
+        BasePremiumPatchingGroup().activate()
+        NonIOS14PremiumPatchingGroup().activate()
+        LatestPremiumPatchingGroup().activate()
+        UniversalSettingsIntegrationProfileGroup().activate()
+        UniversalSettingsIntegrationSettingsVCGroup().activate()
+        UniversalSettingsIntegrationNavGroup().activate()
     }
 }
-
-// הערה: תעתיק את שאר פונקציות ה-activate וניהול השרתים מהקובץ המלא ששלחתי קודם, 
-// פשוט תוודא ששמת את showAviSplashScreen() בתוך ה-init.
