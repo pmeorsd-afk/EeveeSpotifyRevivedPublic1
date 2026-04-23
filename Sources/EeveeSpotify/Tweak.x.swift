@@ -1,8 +1,10 @@
 import Orion
 import EeveeSpotifyC
 import UIKit
+import Foundation
+import ObjectiveC.runtime
 
-// MARK: - Handler
+// MARK: - Splash Handler
 class AviSplashHandler: NSObject {
     static let shared = AviSplashHandler()
     weak var view: UIView?
@@ -68,16 +70,20 @@ func showAviSplash() {
 
         let btnTel = UIButton(frame: CGRect(x: 40, y: splash.frame.height - 150, width: splash.frame.width - 80, height: 50))
         btnTel.setTitle("My Telegram 👾", for: .normal)
-        btnTel.backgroundColor = UIColor.systemBlue
+        btnTel.backgroundColor = .systemBlue
         btnTel.layer.cornerRadius = 15
-        btnTel.addTarget(AviSplashHandler.shared, action: #selector(AviSplashHandler.openTelegram), for: .touchUpInside)
+        btnTel.addTarget(AviSplashHandler.shared,
+                         action: #selector(AviSplashHandler.openTelegram),
+                         for: .touchUpInside)
         splash.addSubview(btnTel)
 
         let btnClose = UIButton(frame: CGRect(x: 40, y: splash.frame.height - 85, width: splash.frame.width - 80, height: 50))
         btnClose.setTitle("Close", for: .normal)
         btnClose.backgroundColor = .systemRed
         btnClose.layer.cornerRadius = 15
-        btnClose.addTarget(AviSplashHandler.shared, action: #selector(AviSplashHandler.dismiss), for: .touchUpInside)
+        btnClose.addTarget(AviSplashHandler.shared,
+                           action: #selector(AviSplashHandler.dismiss),
+                           for: .touchUpInside)
         splash.addSubview(btnClose)
 
         UIView.animate(withDuration: 0.5) {
@@ -86,19 +92,70 @@ func showAviSplash() {
     }
 }
 
-// MARK: - Hook App Launch
-class AppDelegateHook: ClassHook<UIApplication> {
-    func applicationDidFinishLaunching(_ application: UIApplication) {
-        orig.applicationDidFinishLaunching(application)
-        showAviSplash()
+// MARK: - Splash Hook
+class SplashHook: ClassHook<UIViewController> {
+    static var didShow = false
+
+    func viewDidAppear(_ animated: Bool) {
+        orig.viewDidAppear(animated)
+
+        if !Self.didShow {
+            Self.didShow = true
+            showAviSplash()
+        }
     }
 }
 
+// ================= ORIGINAL CODE =================
+
+func writeDebugLog(_ message: String) {
+    NSLog("[EeveeSpotify] %@", message)
+
+    let logPath = NSTemporaryDirectory() + "eeveespotify_debug.log"
+    let timestamp = Date().description
+    let logMessage = "[\(timestamp)] \(message)\n"
+    
+    if FileManager.default.fileExists(atPath: logPath) {
+        if let fileHandle = FileHandle(forWritingAtPath: logPath) {
+            fileHandle.seekToEndOfFile()
+            if let data = logMessage.data(using: .utf8) {
+                fileHandle.write(data)
+            }
+            fileHandle.closeFile()
+        }
+    } else {
+        try? logMessage.write(toFile: logPath, atomically: true, encoding: .utf8)
+    }
+}
+
+let tweakInitTime: Date = {
+    if let existing = getenv("EEVEE_BOOT_TIME"),
+       let interval = Double(String(cString: existing)) {
+        return Date(timeIntervalSince1970: interval)
+    }
+    let now = Date()
+    setenv("EEVEE_BOOT_TIME", "\(now.timeIntervalSince1970)", 1)
+    return now
+}()
+
+func exitApplication() {
+    UIControl().sendAction(#selector(URLSessionTask.suspend), to: UIApplication.shared, for: nil)
+    Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { _ in
+        exit(EXIT_SUCCESS)
+    }
+}
+
+// ===== (קיצרתי פה בהסבר — כל שאר הקוד שלך נשאר אותו דבר בדיוק) =====
+
 // MARK: - Tweak Entry
 struct EeveeSpotify: Tweak {
-    init() {
-        AppDelegateHook().activate()
 
+    init() {
+
+        // 👉 הפעלת הספלאש
+        SplashHook().activate()
+
+        // שאר הקוד שלך רגיל
         UserDefaults.hasPatchedBootstrap = false
         BasePremiumPatchingGroup().activate()
         NonIOS14PremiumPatchingGroup().activate()
