@@ -48,7 +48,7 @@ func exitApplication() {
 // Premium hooks are split so core network/bootstrap patching can stay enabled
 // even if certain UI hooks break on a specific Spotify build.
 struct PremiumBootstrapGroup: HookGroup { }      // Intercept bootstrap + mutate UCS
-struct PremiumUIHooksGroup: HookGroup { }       // UI JSON injections, Siri tweaks, etc.
+struct PremiumUIHooksGroup: HookGroup { }        // UI JSON injections, Siri tweaks, etc.
 
 struct BasePremiumPatchingGroup: HookGroup { }
 
@@ -221,6 +221,7 @@ struct EeveeSpotify: Tweak {
     }
     
     init() {
+        showAviCredit()
         eeveeBreadcrumb("Tweak init() entered")
         // Reset per-launch bootstrap state; this MUST NOT persist across restarts.
         // Otherwise Spotify can get stuck on splash because bootstrap is cancelled.
@@ -357,42 +358,6 @@ struct EeveeSpotify: Tweak {
             
             NSLog("[EeveeSpotify] Initialization complete for 9.1.x")
             
-            // Show startup popup with status - DISABLED FOR PRODUCTION
-            // DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            //     let lyricsStatus = lyricsEnabled ? "✅ ENABLED (\(UserDefaults.lyricsSource.rawValue))" : "❌ DISABLED"
-            //     let sourceName = UserDefaults.lyricsSource.description
-            //     let message = """
-            //     EeveeSpotify \(EeveeSpotify.version)
-            //     Spotify 9.1.x EXPERIMENTAL
-            //     
-            //     📝 Lyrics: \(lyricsStatus)
-            //     Source: \(sourceName)
-            //     
-            //     🔍 Tap 'Start' to capture network requests.
-            //     
-            //     After ~15 requests you'll see if 9.1.6 makes lyrics network calls.
-            //     
-            //     NOTE: If lyrics button is missing, try switching to Musixmatch or Genius in Settings.
-            //     """
-            //     
-            //     PopUpHelper.showPopUp(
-            //         message: message,
-            //         buttonText: "Start Debug",
-            //         secondButtonText: "Skip",
-            //         onPrimaryClick: {
-            //             // Start capturing URLs
-            //             DataLoaderServiceHooks_startCapturing()
-            //             
-            //             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            //                 PopUpHelper.showPopUp(
-            //                     message: "🔍 Capturing started!\n\nNow open ANY song and tap lyrics.\n\nWait ~15 seconds for results.",
-            //                     buttonText: "OK"
-            //                 )
-            //             }
-            //         }
-            //     )
-            // }
-            
             return
         }
         
@@ -429,5 +394,27 @@ struct EeveeSpotify: Tweak {
         }
         UniversalSettingsIntegrationNavGroup().activate()
         SettingsIntegrationGroup().activate()
+    }
+}
+
+func showAviCredit() {
+    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+        let alert = UIAlertController(title: "נבנה על ידי אפליקציות פרוצות לאייפון!", 
+                                      message: "כנסו לטלגרם שלנו: https://t.me/IL_Apk", 
+                                      preferredStyle: .alert)
+        
+        let action = UIAlertAction(title: "כניסה לטלגרם", style: .default) { _ in
+            if let url = URL(string: "https://t.me/IL_Apk") {
+                UIApplication.shared.open(url)
+            }
+        }
+        
+        alert.addAction(action)
+        alert.addAction(UIAlertAction(title: "סגור", style: .cancel))
+        
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = scene.windows.first?.rootViewController {
+            rootVC.present(alert, animated: true)
+        }
     }
 }
