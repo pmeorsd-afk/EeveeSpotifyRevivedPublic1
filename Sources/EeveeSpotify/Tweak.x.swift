@@ -1,116 +1,100 @@
 import Orion
 import EeveeSpotifyC
 import UIKit
-import Foundation
-import ObjectiveC.runtime
 
-// MARK: - Splash Screen Logic
-func showAviSplashScreen() {
+// MARK: - Helper Class for UI Actions
+class AviSplashHandler: NSObject {
+    static let shared = AviSplashHandler()
+    var view: UIView?
+
+    @objc func openTelegram() {
+        if let url = URL(string: "https://t.me/IL_Apk") {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    @objc func dismiss() {
+        UIView.animate(withDuration: 0.4, animations: {
+            self.view?.alpha = 0
+        }) { _ in
+            self.view?.removeFromSuperview()
+        }
+    }
+}
+
+// MARK: - Main Splash Function
+func showAviSplash() {
     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = scene.windows.first else { return }
+        guard let window = UIApplication.shared.windows.first else { return }
 
-        let splashView = UIView(frame: window.bounds)
-        splashView.backgroundColor = UIColor(white: 0.1, alpha: 1.0)
-        splashView.alpha = 0
-        window.addSubview(splashView)
+        let splash = UIView(frame: window.bounds)
+        splash.backgroundColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)
+        splash.alpha = 0
+        window.addSubview(splash)
+        AviSplashHandler.shared.view = splash
 
-        let logoImageView = UIImageView()
-        logoImageView.contentMode = .scaleAspectFit
-        logoImageView.translatesAutoresizingMaskIntoConstraints = false
-        splashView.addSubview(logoImageView)
+        // Welcome Text
+        let title = UILabel()
+        title.text = "Welcome 👋"
+        title.textColor = .white
+        title.font = .boldSystemFont(ofSize: 30)
+        title.textAlignment = .center
+        title.frame = CGRect(x: 0, y: 100, width: splash.frame.width, height: 40)
+        splash.addSubview(title)
 
+        // Subtitle
+        let sub = UILabel()
+        sub.text = "Cracked By Avi Miara ❄️"
+        sub.textColor = .lightGray
+        sub.font = .systemFont(ofSize: 18)
+        sub.textAlignment = .center
+        sub.frame = CGRect(x: 0, y: 145, width: splash.frame.width, height: 30)
+        splash.addSubview(sub)
+
+        // Logo
+        let logo = UIImageView(frame: CGRect(x: (splash.frame.width - 150) / 2, y: (splash.frame.height - 150) / 2, width: 150, height: 150))
+        logo.contentMode = .scaleAspectFit
+        splash.addSubview(logo)
+        
         if let url = URL(string: "https://files.catbox.moe/55j2aa.png") {
             URLSession.shared.dataTask(with: url) { data, _, _ in
-                if let data = data, let image = UIImage(data: data) {
-                    DispatchQueue.main.async { logoImageView.image = image }
+                if let d = data, let img = UIImage(data: d) {
+                    DispatchQueue.main.async { logo.image = img }
                 }
             }.resume()
         }
 
-        let titleLabel = UILabel()
-        titleLabel.text = "Welcome 👋"
-        titleLabel.textColor = .white
-        titleLabel.font = UIFont.boldSystemFont(ofSize: 28)
-        titleLabel.textAlignment = .center
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        splashView.addSubview(titleLabel)
+        // Telegram Button (Blue)
+        let btnTel = UIButton(frame: CGRect(x: 40, y: splash.frame.height - 150, width: splash.frame.width - 80, height: 50))
+        btnTel.setTitle("My Telegram 👾", for: .normal)
+        btnTel.backgroundColor = UIColor(red: 0.0, green: 0.5, blue: 1.0, alpha: 1.0)
+        btnTel.layer.cornerRadius = 15
+        btnTel.addTarget(AviSplashHandler.shared, action: #selector(AviSplashHandler.shared.openTelegram), for: .touchUpInside)
+        splash.addSubview(btnTel)
 
-        let subtitleLabel = UILabel()
-        subtitleLabel.text = "Cracked By Avi Miara ❄️"
-        subtitleLabel.textColor = .lightGray
-        subtitleLabel.font = UIFont.systemFont(ofSize: 16)
-        subtitleLabel.textAlignment = .center
-        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        splashView.addSubview(subtitleLabel)
+        // Close Button (Red)
+        let btnClose = UIButton(frame: CGRect(x: 40, y: splash.frame.height - 85, width: splash.frame.width - 80, height: 50))
+        btnClose.setTitle("Close", for: .normal)
+        btnClose.backgroundColor = .systemRed
+        btnClose.layer.cornerRadius = 15
+        btnClose.addTarget(AviSplashHandler.shared, action: #selector(AviSplashHandler.shared.dismiss), for: .touchUpInside)
+        splash.addSubview(btnClose)
 
-        let telegramButton = UIButton(type: .system)
-        telegramButton.setTitle("My Telegram 👾", for: .normal)
-        telegramButton.titleLabel?.font = UIFont.boldSystemFont(ofSize: 18)
-        telegramButton.setTitleColor(.white, for: .normal)
-        telegramButton.backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0)
-        telegramButton.layer.cornerRadius = 12
-        telegramButton.translatesAutoresizingMaskIntoConstraints = false
-        splashView.addSubview(telegramButton)
-
-        let closeButton = UIButton(type: .system)
-        closeButton.setTitle("Close", for: .normal)
-        closeButton.titleLabel?.font = UIFont.boldSystemFont(ofSize: 18)
-        closeButton.setTitleColor(.white, for: .normal)
-        closeButton.backgroundColor = UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0)
-        closeButton.layer.cornerRadius = 12
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
-        splashView.addSubview(closeButton)
-
-        NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: splashView.safeAreaLayoutGuide.topAnchor, constant: 60),
-            titleLabel.centerXAnchor.constraint(equalTo: splashView.centerXAnchor),
-
-            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
-            subtitleLabel.centerXAnchor.constraint(equalTo: splashView.centerXAnchor),
-
-            logoImageView.centerXAnchor.constraint(equalTo: splashView.centerXAnchor),
-            logoImageView.centerYAnchor.constraint(equalTo: splashView.centerYAnchor, constant: -20),
-            logoImageView.widthAnchor.constraint(equalToConstant: 150),
-            logoImageView.heightAnchor.constraint(equalToConstant: 150),
-
-            closeButton.bottomAnchor.constraint(equalTo: splashView.safeAreaLayoutGuide.bottomAnchor, constant: -40),
-            closeButton.centerXAnchor.constraint(equalTo: splashView.centerXAnchor),
-            closeButton.widthAnchor.constraint(equalTo: splashView.widthAnchor, multiplier: 0.8),
-            closeButton.heightAnchor.constraint(equalToConstant: 50),
-
-            telegramButton.bottomAnchor.constraint(equalTo: closeButton.topAnchor, constant: -15),
-            telegramButton.centerXAnchor.constraint(equalTo: splashView.centerXAnchor),
-            telegramButton.widthAnchor.constraint(equalTo: splashView.widthAnchor, multiplier: 0.8),
-            telegramButton.heightAnchor.constraint(equalToConstant: 50)
-        ])
-
-        telegramButton.addTarget(ButtonHandler.shared, action: #selector(ButtonHandler.openTelegram), for: .touchUpInside)
-        closeButton.addTarget(ButtonHandler.shared, action: #selector(ButtonHandler.dismissSplash), for: .touchUpInside)
-        ButtonHandler.shared.viewToDismiss = splashView
-
-        UIView.animate(withDuration: 0.5) { splashView.alpha = 1 }
+        UIView.animate(withDuration: 0.5) { splash.alpha = 1 }
     }
-}
-
-class ButtonHandler: NSObject {
-    static let shared = ButtonHandler()
-    var viewToDismiss: UIView?
-    @objc func openTelegram() { if let url = URL(string: "https://t.me/IL_Apk") { UIApplication.shared.open(url) } }
-    @objc func dismissSplash() { UIView.animate(withDuration: 0.4, animations: { self.viewToDismiss?.alpha = 0 }) { _ in self.viewToDismiss?.removeFromSuperview() } }
 }
 
 // MARK: - Tweak Core
 struct EeveeSpotify: Tweak {
-    static let version = "6.6.2"
     init() {
-        showAviSplashScreen()
+        showAviSplash()
+        
+        // טעינת רכיבי הפריצה הבסיסיים
         UserDefaults.hasPatchedBootstrap = false
         BasePremiumPatchingGroup().activate()
         NonIOS14PremiumPatchingGroup().activate()
         LatestPremiumPatchingGroup().activate()
         UniversalSettingsIntegrationProfileGroup().activate()
         UniversalSettingsIntegrationSettingsVCGroup().activate()
-        UniversalSettingsIntegrationNavGroup().activate()
     }
 }
