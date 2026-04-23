@@ -2,94 +2,103 @@ import Orion
 import EeveeSpotifyC
 import UIKit
 
-// MARK: - Helper Class for UI Actions
+// MARK: - Handler
 class AviSplashHandler: NSObject {
     static let shared = AviSplashHandler()
-    var view: UIView?
+    weak var view: UIView?
 
     @objc func openTelegram() {
-        if let url = URL(string: "https://t.me/IL_Apk") {
-            UIApplication.shared.open(url)
-        }
+        guard let url = URL(string: "https://t.me/IL_Apk") else { return }
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
 
     @objc func dismiss() {
+        guard let view = view else { return }
         UIView.animate(withDuration: 0.4, animations: {
-            self.view?.alpha = 0
+            view.alpha = 0
         }) { _ in
-            self.view?.removeFromSuperview()
+            view.removeFromSuperview()
         }
     }
 }
 
-// MARK: - Main Splash Function
+// MARK: - Splash UI
 func showAviSplash() {
     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-        guard let window = UIApplication.shared.windows.first else { return }
+        guard let window = UIApplication.shared.windows.first(where: { $0.isKeyWindow }) else { return }
 
         let splash = UIView(frame: window.bounds)
-        splash.backgroundColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)
+        splash.backgroundColor = UIColor(white: 0.1, alpha: 1)
         splash.alpha = 0
         window.addSubview(splash)
+
         AviSplashHandler.shared.view = splash
 
-        // Welcome Text
-        let title = UILabel()
+        let title = UILabel(frame: CGRect(x: 0, y: 100, width: splash.frame.width, height: 40))
         title.text = "Welcome 👋"
         title.textColor = .white
         title.font = .boldSystemFont(ofSize: 30)
         title.textAlignment = .center
-        title.frame = CGRect(x: 0, y: 100, width: splash.frame.width, height: 40)
         splash.addSubview(title)
 
-        // Subtitle
-        let sub = UILabel()
+        let sub = UILabel(frame: CGRect(x: 0, y: 145, width: splash.frame.width, height: 30))
         sub.text = "Cracked By Avi Miara ❄️"
         sub.textColor = .lightGray
         sub.font = .systemFont(ofSize: 18)
         sub.textAlignment = .center
-        sub.frame = CGRect(x: 0, y: 145, width: splash.frame.width, height: 30)
         splash.addSubview(sub)
 
-        // Logo
-        let logo = UIImageView(frame: CGRect(x: (splash.frame.width - 150) / 2, y: (splash.frame.height - 150) / 2, width: 150, height: 150))
+        let logo = UIImageView(frame: CGRect(
+            x: (splash.frame.width - 150) / 2,
+            y: (splash.frame.height - 150) / 2,
+            width: 150,
+            height: 150
+        ))
         logo.contentMode = .scaleAspectFit
         splash.addSubview(logo)
-        
+
         if let url = URL(string: "https://files.catbox.moe/55j2aa.png") {
             URLSession.shared.dataTask(with: url) { data, _, _ in
-                if let d = data, let img = UIImage(data: d) {
-                    DispatchQueue.main.async { logo.image = img }
+                guard let data = data, let image = UIImage(data: data) else { return }
+                DispatchQueue.main.async {
+                    logo.image = image
                 }
             }.resume()
         }
 
-        // Telegram Button (Blue)
         let btnTel = UIButton(frame: CGRect(x: 40, y: splash.frame.height - 150, width: splash.frame.width - 80, height: 50))
         btnTel.setTitle("My Telegram 👾", for: .normal)
-        btnTel.backgroundColor = UIColor(red: 0.0, green: 0.5, blue: 1.0, alpha: 1.0)
+        btnTel.backgroundColor = UIColor.systemBlue
         btnTel.layer.cornerRadius = 15
-        btnTel.addTarget(AviSplashHandler.shared, action: #selector(AviSplashHandler.shared.openTelegram), for: .touchUpInside)
+        btnTel.addTarget(AviSplashHandler.shared, action: #selector(AviSplashHandler.openTelegram), for: .touchUpInside)
         splash.addSubview(btnTel)
 
-        // Close Button (Red)
         let btnClose = UIButton(frame: CGRect(x: 40, y: splash.frame.height - 85, width: splash.frame.width - 80, height: 50))
         btnClose.setTitle("Close", for: .normal)
         btnClose.backgroundColor = .systemRed
         btnClose.layer.cornerRadius = 15
-        btnClose.addTarget(AviSplashHandler.shared, action: #selector(AviSplashHandler.shared.dismiss), for: .touchUpInside)
+        btnClose.addTarget(AviSplashHandler.shared, action: #selector(AviSplashHandler.dismiss), for: .touchUpInside)
         splash.addSubview(btnClose)
 
-        UIView.animate(withDuration: 0.5) { splash.alpha = 1 }
+        UIView.animate(withDuration: 0.5) {
+            splash.alpha = 1
+        }
     }
 }
 
-// MARK: - Tweak Core
+// MARK: - Hook App Launch
+class AppDelegateHook: ClassHook<UIApplication> {
+    func applicationDidFinishLaunching(_ application: UIApplication) {
+        orig.applicationDidFinishLaunching(application)
+        showAviSplash()
+    }
+}
+
+// MARK: - Tweak Entry
 struct EeveeSpotify: Tweak {
     init() {
-        showAviSplash()
-        
-        // טעינת רכיבי הפריצה הבסיסיים
+        AppDelegateHook().activate()
+
         UserDefaults.hasPatchedBootstrap = false
         BasePremiumPatchingGroup().activate()
         NonIOS14PremiumPatchingGroup().activate()
