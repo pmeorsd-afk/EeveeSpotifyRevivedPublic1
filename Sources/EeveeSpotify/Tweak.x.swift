@@ -4,69 +4,9 @@ import UIKit
 import Foundation
 import ObjectiveC.runtime
 
-// MARK: - Avi Splash Manager (Claude's Logic)
-final class AviSplashManager {
-    static let shared = AviSplashManager()
-    private var hasShown = false
-    private var splashWindow: UIWindow?
-
-    private init() {}
-
-    func showIfNeeded() {
-        guard !hasShown else { return }
-        hasShown = true
-        presentSplash()
-    }
-
-    private func presentSplash() {
-        // מציאת החלון הפעיל בצורה בטוחה אחרי שה-UI נרגע
-        guard
-            let scene = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .first(where: { $0.activationState == .foregroundActive })
-        else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                self?.presentSplash()
-            }
-            return
-        }
-
-        let window = UIWindow(windowScene: scene)
-        window.windowLevel = .alert + 1
-        window.backgroundColor = .clear
-        window.rootViewController = AviSplashViewController { [weak self] in
-            self?.dismissSplash()
-        }
-        window.makeKeyAndVisible()
-        window.alpha = 0
-
-        UIView.animate(withDuration: 0.4) { window.alpha = 1.0 }
-
-        // שמירה על החלון בזיכרון
-        self.splashWindow = window
-    }
-
-    private func dismissSplash() {
-        UIView.animate(withDuration: 0.35, animations: {
-            self.splashWindow?.alpha = 0
-        }) { _ in
-            self.splashWindow?.isHidden = true
-            self.splashWindow = nil
-        }
-    }
-}
-
-// MARK: - Avi Splash View Controller
+// MARK: - Splash View Controller (העיצוב המלא והיפה שלך)
 final class AviSplashViewController: UIViewController {
-    private let onClose: () -> Void
-
-    init(onClose: @escaping () -> Void) {
-        self.onClose = onClose
-        super.init(nibName: nil, bundle: nil)
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
@@ -100,16 +40,28 @@ final class AviSplashViewController: UIViewController {
         view.addSubview(logo)
 
         // Telegram button
-        let btnTel = makeButton(title: "My Telegram 👾",
-                                color: UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0),
-                                action: #selector(openTelegram))
+        let btnTel = UIButton(type: .system)
+        btnTel.setTitle("My Telegram 👾", for: .normal)
+        btnTel.setTitleColor(.white, for: .normal)
+        btnTel.backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0)
+        btnTel.titleLabel?.font = .boldSystemFont(ofSize: 19)
+        btnTel.layer.cornerRadius = 16
+        btnTel.translatesAutoresizingMaskIntoConstraints = false
+        btnTel.addTarget(self, action: #selector(openTelegram), for: .touchUpInside)
+        view.addSubview(btnTel)
 
         // Close button
-        let btnClose = makeButton(title: "Close",
-                                  color: UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0),
-                                  action: #selector(closeSplash))
+        let btnClose = UIButton(type: .system)
+        btnClose.setTitle("Close", for: .normal)
+        btnClose.setTitleColor(.white, for: .normal)
+        btnClose.backgroundColor = UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0)
+        btnClose.titleLabel?.font = .boldSystemFont(ofSize: 19)
+        btnClose.layer.cornerRadius = 16
+        btnClose.translatesAutoresizingMaskIntoConstraints = false
+        btnClose.addTarget(self, action: #selector(closeSplash), for: .touchUpInside)
+        view.addSubview(btnClose)
 
-        // Auto Layout Constraints
+        // Auto Layout Constraints (יציב על כל מסך)
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 60),
             titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
@@ -144,40 +96,13 @@ final class AviSplashViewController: UIViewController {
         }
     }
 
-    private func makeButton(title: String, color: UIColor, action: Selector) -> UIButton {
-        let btn = UIButton(type: .system)
-        btn.setTitle(title, for: .normal)
-        btn.setTitleColor(.white, for: .normal)
-        btn.backgroundColor = color
-        btn.titleLabel?.font = .boldSystemFont(ofSize: 19)
-        btn.layer.cornerRadius = 16
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        btn.addTarget(self, action: action, for: .touchUpInside)
-        view.addSubview(btn)
-        return btn
-    }
-
     @objc private func openTelegram() {
         guard let url = URL(string: "https://t.me/IL_Apk") else { return }
         UIApplication.shared.open(url)
     }
 
     @objc private func closeSplash() {
-        onClose()
-    }
-}
-
-// MARK: - Orion Hook (The Magic)
-class RootVCHook: ClassHook<UIViewController> {
-    func viewDidAppear(_ animated: Bool) {
-        orig.viewDidAppear(animated)
-
-        guard
-            self.target.view.window?.isKeyWindow == true,
-            self.target.parent == nil
-        else { return }
-
-        AviSplashManager.shared.showIfNeeded()
+        self.dismiss(animated: true, completion: nil)
     }
 }
 
@@ -245,6 +170,7 @@ func activateSessionLogoutProtection(minimal: Bool) {
     return String(cString: v).lowercased() == "1" || String(cString: v).lowercased() == "true"
 }
 
+// MARK: - Tweak Entry (The Magic 3.0 Second Delay Strategy)
 struct EeveeSpotify: Tweak {
     static let version = "6.6.2"
     static let buildNumber = "1"
@@ -260,8 +186,27 @@ struct EeveeSpotify: Tweak {
     }
 
     init() {
-        // (ההוק של קלוד RootVCHook נטען אוטומטית על ידי Orion, אז לא צריך לקרוא לו פה)
+        // שיטת YTLite: השהייה קשיחה של 3 שניות לפני כל ניסיון נגיעה במסך
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            // חיפוש בטוח של החלון הראשי אחרי 3 שניות (כשהכל בטוח סיים לעלות)
+            guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+                  let window = windowScene.windows.first(where: { $0.isKeyWindow }),
+                  let rootVC = window.rootViewController else { return }
+            
+            // מוצאים את המסך העליון ביותר כרגע כדי להלביש עליו
+            var topController = rootVC
+            while let presented = topController.presentedViewController {
+                topController = presented
+            }
+            
+            // יצירה והצגה של המסך המעוצב שלנו
+            let splashVC = AviSplashViewController()
+            splashVC.modalPresentationStyle = .overFullScreen
+            splashVC.modalTransitionStyle = .crossDissolve
+            topController.present(splashVC, animated: true)
+        }
         
+        // --- קוד הפריצה המקורי ממשיך כרגיל ---
         UserDefaults.hasPatchedBootstrap = false
         if eeveeEnvFlag("EEVEE_DISABLE_ALL") { return }
 
