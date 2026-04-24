@@ -429,5 +429,9 @@ struct EeveeSpotify: Tweak {
         }
         UniversalSettingsIntegrationNavGroup().activate()
         SettingsIntegrationGroup().activate()
+        // MARK: - Splash Screen
+DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+    EeveeSplashPresenter.show()
+}
     }
 }
