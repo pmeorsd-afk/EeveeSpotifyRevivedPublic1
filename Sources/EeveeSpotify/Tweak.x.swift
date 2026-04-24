@@ -4,121 +4,180 @@ import UIKit
 import Foundation
 import ObjectiveC.runtime
 
-// MARK: - Splash Manager (הדרך העצמאית לחלוטין - חלון מרחף)
-class AviSplashManager: NSObject {
+// MARK: - Avi Splash Manager (Claude's Logic)
+final class AviSplashManager {
     static let shared = AviSplashManager()
-    var splashWindow: UIWindow? // שומר על החלון שלנו באוויר
-    var hasShown = false // מוודא שזה יקפוץ רק פעם אחת בהפעלה
+    private var hasShown = false
+    private var splashWindow: UIWindow?
 
-    @objc func appDidBecomeActive() {
-        if !hasShown {
-            hasShown = true
-            // מחכים שניה אחרי שהאפליקציה כבר עלתה לגמרי ומוכנה לשימוש
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                self.showFloatingWindow()
-            }
-        }
+    private init() {}
+
+    func showIfNeeded() {
+        guard !hasShown else { return }
+        hasShown = true
+        presentSplash()
     }
 
-    func showFloatingWindow() {
-        // מציאת הסצנה הפעילה (iOS 13 ומעלה)
-        guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
-        
-        // יצירת חלון חדש משלנו, שלא קשור לספוטיפיי!
-        let window = UIWindow(windowScene: windowScene)
-        window.windowLevel = UIWindow.Level.alert + 1 // מרחף מעל ה-כ-ל (אפילו מעל התראות)
+    private func presentSplash() {
+        // מציאת החלון הפעיל בצורה בטוחה אחרי שה-UI נרגע
+        guard
+            let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive })
+        else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                self?.presentSplash()
+            }
+            return
+        }
+
+        let window = UIWindow(windowScene: scene)
+        window.windowLevel = .alert + 1
         window.backgroundColor = .clear
-        
-        let vc = AviSplashViewController()
-        window.rootViewController = vc
-        
-        // הצגה
+        window.rootViewController = AviSplashViewController { [weak self] in
+            self?.dismissSplash()
+        }
         window.makeKeyAndVisible()
         window.alpha = 0
+
+        UIView.animate(withDuration: 0.4) { window.alpha = 1.0 }
+
+        // שמירה על החלון בזיכרון
         self.splashWindow = window
-        
-        UIView.animate(withDuration: 0.5) {
-            window.alpha = 1
-        }
     }
 
-    func hideFloatingWindow() {
-        UIView.animate(withDuration: 0.4, animations: {
+    private func dismissSplash() {
+        UIView.animate(withDuration: 0.35, animations: {
             self.splashWindow?.alpha = 0
         }) { _ in
             self.splashWindow?.isHidden = true
-            self.splashWindow = nil // מחיקת החלון מהזיכרון והחזרת השליטה לספוטיפיי
+            self.splashWindow = nil
         }
     }
 }
 
 // MARK: - Avi Splash View Controller
-class AviSplashViewController: UIViewController {
-    
+final class AviSplashViewController: UIViewController {
+    private let onClose: () -> Void
+
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        view.backgroundColor = UIColor(white: 0.1, alpha: 1.0)
-        
-        // כותרת
-        let titleLabel = UILabel(frame: CGRect(x: 0, y: 100, width: view.bounds.width, height: 40))
+        setupUI()
+    }
+
+    private func setupUI() {
+        view.backgroundColor = UIColor(white: 0.05, alpha: 1.0)
+
+        // Title
+        let titleLabel = UILabel()
         titleLabel.text = "Welcome 👋"
         titleLabel.textColor = .white
-        titleLabel.font = .boldSystemFont(ofSize: 30)
+        titleLabel.font = .boldSystemFont(ofSize: 32)
         titleLabel.textAlignment = .center
-        titleLabel.autoresizingMask = [.flexibleWidth]
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(titleLabel)
 
-        // תת כותרת
-        let subLabel = UILabel(frame: CGRect(x: 0, y: 145, width: view.bounds.width, height: 30))
+        // Subtitle
+        let subLabel = UILabel()
         subLabel.text = "Cracked By Avi Miara ❄️"
         subLabel.textColor = .lightGray
         subLabel.font = .systemFont(ofSize: 18)
         subLabel.textAlignment = .center
-        subLabel.autoresizingMask = [.flexibleWidth]
+        subLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(subLabel)
 
-        // לוגו
-        let logo = UIImageView(frame: CGRect(x: (view.bounds.width - 150) / 2, y: (view.bounds.height - 150) / 2, width: 150, height: 150))
+        // Logo
+        let logo = UIImageView()
         logo.contentMode = .scaleAspectFit
-        logo.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin]
+        logo.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(logo)
 
+        // Telegram button
+        let btnTel = makeButton(title: "My Telegram 👾",
+                                color: UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0),
+                                action: #selector(openTelegram))
+
+        // Close button
+        let btnClose = makeButton(title: "Close",
+                                  color: UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0),
+                                  action: #selector(closeSplash))
+
+        // Auto Layout Constraints
+        NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 60),
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+
+            subLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+            subLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            subLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+
+            logo.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            logo.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            logo.widthAnchor.constraint(equalToConstant: 160),
+            logo.heightAnchor.constraint(equalToConstant: 160),
+
+            btnTel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
+            btnTel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -40),
+            btnTel.bottomAnchor.constraint(equalTo: btnClose.topAnchor, constant: -12),
+            btnTel.heightAnchor.constraint(equalToConstant: 55),
+
+            btnClose.leadingAnchor.constraint(equalTo: btnTel.leadingAnchor),
+            btnClose.trailingAnchor.constraint(equalTo: btnTel.trailingAnchor),
+            btnClose.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -30),
+            btnClose.heightAnchor.constraint(equalToConstant: 55),
+        ])
+
+        // Async image load
         if let url = URL(string: "https://files.catbox.moe/55j2aa.png") {
             URLSession.shared.dataTask(with: url) { data, _, _ in
-                if let data = data, let image = UIImage(data: data) {
-                    DispatchQueue.main.async { logo.image = image }
-                }
+                guard let data = data, let image = UIImage(data: data) else { return }
+                DispatchQueue.main.async { logo.image = image }
             }.resume()
         }
-
-        // כפתור טלגרם
-        let btnTel = UIButton(frame: CGRect(x: 40, y: view.bounds.height - 160, width: view.bounds.width - 80, height: 50))
-        btnTel.setTitle("My Telegram 👾", for: .normal)
-        btnTel.backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0)
-        btnTel.layer.cornerRadius = 15
-        btnTel.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
-        btnTel.addTarget(self, action: #selector(openTelegram), for: .touchUpInside)
-        view.addSubview(btnTel)
-
-        // כפתור סגירה
-        let btnClose = UIButton(frame: CGRect(x: 40, y: view.bounds.height - 90, width: view.bounds.width - 80, height: 50))
-        btnClose.setTitle("Close", for: .normal)
-        btnClose.backgroundColor = UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0)
-        btnClose.layer.cornerRadius = 15
-        btnClose.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
-        btnClose.addTarget(self, action: #selector(closeSplash), for: .touchUpInside)
-        view.addSubview(btnClose)
     }
-    
-    @objc func openTelegram() {
-        if let url = URL(string: "https://t.me/IL_Apk") {
-            UIApplication.shared.open(url)
-        }
+
+    private func makeButton(title: String, color: UIColor, action: Selector) -> UIButton {
+        let btn = UIButton(type: .system)
+        btn.setTitle(title, for: .normal)
+        btn.setTitleColor(.white, for: .normal)
+        btn.backgroundColor = color
+        btn.titleLabel?.font = .boldSystemFont(ofSize: 19)
+        btn.layer.cornerRadius = 16
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.addTarget(self, action: action, for: .touchUpInside)
+        view.addSubview(btn)
+        return btn
     }
-    
-    @objc func closeSplash() {
-        AviSplashManager.shared.hideFloatingWindow()
+
+    @objc private func openTelegram() {
+        guard let url = URL(string: "https://t.me/IL_Apk") else { return }
+        UIApplication.shared.open(url)
+    }
+
+    @objc private func closeSplash() {
+        onClose()
+    }
+}
+
+// MARK: - Orion Hook (The Magic)
+class RootVCHook: ClassHook<UIViewController> {
+    func viewDidAppear(_ animated: Bool) {
+        orig.viewDidAppear(animated)
+
+        guard
+            self.target.view.window?.isKeyWindow == true,
+            self.target.parent == nil
+        else { return }
+
+        AviSplashManager.shared.showIfNeeded()
     }
 }
 
@@ -199,16 +258,10 @@ struct EeveeSpotify: Tweak {
         default: return .latest
         }
     }
-    
-    init() {
-        // שינוי קריטי: האזנה להתעוררות מלאה של האפליקציה (didBecomeActive)
-        NotificationCenter.default.addObserver(
-            AviSplashManager.shared,
-            selector: #selector(AviSplashManager.appDidBecomeActive),
-            name: UIApplication.didBecomeActiveNotification,
-            object: nil
-        )
 
+    init() {
+        // (ההוק של קלוד RootVCHook נטען אוטומטית על ידי Orion, אז לא צריך לקרוא לו פה)
+        
         UserDefaults.hasPatchedBootstrap = false
         if eeveeEnvFlag("EEVEE_DISABLE_ALL") { return }
 
@@ -237,9 +290,7 @@ struct EeveeSpotify: Tweak {
         
         UniversalSettingsIntegrationProfileGroup().activate()
         UniversalSettingsIntegrationSettingsVCGroup().activate()
-        if NSClassFromString("RootSettingsViewController") != nil {
-            UniversalSettingsIntegrationRootSettingsVCGroup().activate()
-        }
+        if NSClassFromString("RootSettingsViewController") != nil { UniversalSettingsIntegrationRootSettingsVCGroup().activate() }
         UniversalSettingsIntegrationNavGroup().activate()
         SettingsIntegrationGroup().activate()
     }
