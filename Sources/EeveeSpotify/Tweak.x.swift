@@ -4,113 +4,35 @@ import UIKit
 import Foundation
 import ObjectiveC.runtime
 
-// MARK: - Splash View Controller (העיצוב המלא והיפה שלך)
-final class AviSplashViewController: UIViewController {
+func writeDebugLog(_ message: String) {
+    // Log to system console
+    NSLog("[EeveeSpotify] %@", message)
+
+    let logPath = NSTemporaryDirectory() + "eeveespotify_debug.log"
+    let timestamp = Date().description
+    let logMessage = "[\(timestamp)] \(message)\n"
     
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        setupUI()
-    }
-
-    private func setupUI() {
-        view.backgroundColor = UIColor(white: 0.05, alpha: 1.0)
-
-        // Title
-        let titleLabel = UILabel()
-        titleLabel.text = "Welcome 👋"
-        titleLabel.textColor = .white
-        titleLabel.font = .boldSystemFont(ofSize: 32)
-        titleLabel.textAlignment = .center
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(titleLabel)
-
-        // Subtitle
-        let subLabel = UILabel()
-        subLabel.text = "Cracked By Avi Miara ❄️"
-        subLabel.textColor = .lightGray
-        subLabel.font = .systemFont(ofSize: 18)
-        subLabel.textAlignment = .center
-        subLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(subLabel)
-
-        // Logo
-        let logo = UIImageView()
-        logo.contentMode = .scaleAspectFit
-        logo.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(logo)
-
-        // Telegram button
-        let btnTel = UIButton(type: .system)
-        btnTel.setTitle("My Telegram 👾", for: .normal)
-        btnTel.setTitleColor(.white, for: .normal)
-        btnTel.backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0)
-        btnTel.titleLabel?.font = .boldSystemFont(ofSize: 19)
-        btnTel.layer.cornerRadius = 16
-        btnTel.translatesAutoresizingMaskIntoConstraints = false
-        btnTel.addTarget(self, action: #selector(openTelegram), for: .touchUpInside)
-        view.addSubview(btnTel)
-
-        // Close button
-        let btnClose = UIButton(type: .system)
-        btnClose.setTitle("Close", for: .normal)
-        btnClose.setTitleColor(.white, for: .normal)
-        btnClose.backgroundColor = UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0)
-        btnClose.titleLabel?.font = .boldSystemFont(ofSize: 19)
-        btnClose.layer.cornerRadius = 16
-        btnClose.translatesAutoresizingMaskIntoConstraints = false
-        btnClose.addTarget(self, action: #selector(closeSplash), for: .touchUpInside)
-        view.addSubview(btnClose)
-
-        // Auto Layout Constraints (יציב על כל מסך)
-        NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 60),
-            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-
-            subLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
-            subLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            subLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-
-            logo.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            logo.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            logo.widthAnchor.constraint(equalToConstant: 160),
-            logo.heightAnchor.constraint(equalToConstant: 160),
-
-            btnTel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
-            btnTel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -40),
-            btnTel.bottomAnchor.constraint(equalTo: btnClose.topAnchor, constant: -12),
-            btnTel.heightAnchor.constraint(equalToConstant: 55),
-
-            btnClose.leadingAnchor.constraint(equalTo: btnTel.leadingAnchor),
-            btnClose.trailingAnchor.constraint(equalTo: btnTel.trailingAnchor),
-            btnClose.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -30),
-            btnClose.heightAnchor.constraint(equalToConstant: 55),
-        ])
-
-        // Async image load
-        if let url = URL(string: "https://files.catbox.moe/55j2aa.png") {
-            URLSession.shared.dataTask(with: url) { data, _, _ in
-                guard let data = data, let image = UIImage(data: data) else { return }
-                DispatchQueue.main.async { logo.image = image }
-            }.resume()
+    if FileManager.default.fileExists(atPath: logPath) {
+        if let fileHandle = FileHandle(forWritingAtPath: logPath) {
+            fileHandle.seekToEndOfFile()
+            if let data = logMessage.data(using: .utf8) {
+                fileHandle.write(data)
+            }
+            fileHandle.closeFile()
         }
-    }
-
-    @objc private func openTelegram() {
-        guard let url = URL(string: "https://t.me/IL_Apk") else { return }
-        UIApplication.shared.open(url)
-    }
-
-    @objc private func closeSplash() {
-        self.dismiss(animated: true, completion: nil)
+    } else {
+        try? logMessage.write(toFile: logPath, atomically: true, encoding: .utf8)
     }
 }
 
-// MARK: - Original EeveeSpotify Logic
-func writeDebugLog(_ message: String) { NSLog("[EeveeSpotify] %@", message) }
-
+// Timestamp of tweak initialization — persists across Orion reinits within the same process
+// using an environment variable. This prevents the 30s auth window from resetting
+// when the C++ timer triggers a session reinit cycle.
 let tweakInitTime: Date = {
-    if let existing = getenv("EEVEE_BOOT_TIME"), let interval = Double(String(cString: existing)) { return Date(timeIntervalSince1970: interval) }
+    if let existing = getenv("EEVEE_BOOT_TIME"),
+       let interval = Double(String(cString: existing)) {
+        return Date(timeIntervalSince1970: interval)
+    }
     let now = Date()
     setenv("EEVEE_BOOT_TIME", "\(now.timeIntervalSince1970)", 1)
     return now
@@ -118,124 +40,393 @@ let tweakInitTime: Date = {
 
 func exitApplication() {
     UIControl().sendAction(#selector(URLSessionTask.suspend), to: UIApplication.shared, for: nil)
-    Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { _ in exit(EXIT_SUCCESS) }
+    Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { _ in
+        exit(EXIT_SUCCESS)
+    }
 }
 
-struct PremiumBootstrapGroup: HookGroup { }
-struct PremiumUIHooksGroup: HookGroup { }
+// Premium hooks are split so core network/bootstrap patching can stay enabled
+// even if certain UI hooks break on a specific Spotify build.
+struct PremiumBootstrapGroup: HookGroup { }      // Intercept bootstrap + mutate UCS
+struct PremiumUIHooksGroup: HookGroup { }       // UI JSON injections, Siri tweaks, etc.
+
 struct BasePremiumPatchingGroup: HookGroup { }
+
 struct IOS14PremiumPatchingGroup: HookGroup { }
 struct NonIOS14PremiumPatchingGroup: HookGroup { }
 struct IOS14And15PremiumPatchingGroup: HookGroup { }
-struct V91PremiumPatchingGroup: HookGroup { }
+struct V91PremiumPatchingGroup: HookGroup { } // For Spotify 9.1.x versions
 struct LatestPremiumPatchingGroup: HookGroup { }
 
 func activatePremiumPatchingGroup() {
     BasePremiumPatchingGroup().activate()
-    if EeveeSpotify.hookTarget == .lastAvailableiOS14 { IOS14PremiumPatchingGroup().activate() }
+    
+    if EeveeSpotify.hookTarget == .lastAvailableiOS14 {
+        IOS14PremiumPatchingGroup().activate()
+    }
     else if EeveeSpotify.hookTarget == .v91 {
+        // 9.1.x versions: Use NonIOS14 hooks but skip offline content hooks
         NonIOS14PremiumPatchingGroup().activate()
+        // Only activate if Spotify's UIView category method exists in this build —
+        // the method was removed/renamed in 9.1.28 and hooking a missing method is a fatal crash.
         let trackRowsSel = Selector(("initWithViewURI:onDemandSet:onDemandTrialService:trackRowsEnabled:productState:"))
-        if UIView.instancesRespond(to: trackRowsSel) { V91PremiumPatchingGroup().activate() }
-    } else {
+        if UIView.instancesRespond(to: trackRowsSel) {
+            V91PremiumPatchingGroup().activate()
+        }
+    }
+    else {
         NonIOS14PremiumPatchingGroup().activate()
-        if EeveeSpotify.hookTarget == .lastAvailableiOS15 { IOS14And15PremiumPatchingGroup().activate() }
-        else { LatestPremiumPatchingGroup().activate() }
+        
+        if EeveeSpotify.hookTarget == .lastAvailableiOS15 {
+            IOS14And15PremiumPatchingGroup().activate()
+        }
+        else {
+            LatestPremiumPatchingGroup().activate()
+        }
     }
 }
 
+// MARK: - Session protection activation
+// Guard each hook group behind runtime checks so minor Spotify updates
+// (e.g., 9.1.34 -> 9.1.36) don't crash the app at launch due to
+// missing private selectors.
 func activateSessionLogoutProtection(minimal: Bool) {
-    @inline(__always) func classHasInstanceMethod(_ cls: AnyClass, _ sel: Selector) -> Bool { return class_getInstanceMethod(cls, sel) != nil }
+    func log(_ msg: String) {
+        NSLog("[EeveeSpotify][SessionProtect] %@", msg)
+    }
+
+    @inline(__always)
+    func classHasInstanceMethod(_ cls: AnyClass, _ sel: Selector) -> Bool {
+        return class_getInstanceMethod(cls, sel) != nil
+    }
+
     if minimal {
-        if let cls = NSClassFromString("NSURLSessionTask"), classHasInstanceMethod(cls, #selector(URLSessionTask.resume)) { SessionLogoutNetworkHookGroup().activate() }
+        // Only the URLSessionTask hook (used for diagnostics + cancelling revoke endpoints)
+        // tends to be stable across minor versions.
+        if let cls = NSClassFromString("NSURLSessionTask"), classHasInstanceMethod(cls, #selector(URLSessionTask.resume)) {
+            SessionLogoutNetworkHookGroup().activate()
+            log("Activated URLSessionTask hooks (minimal)")
+        } else {
+            log("Skipped URLSessionTask hooks (missing selector)")
+        }
         return
     }
+
+    // Auth hooks
     if let cls = NSClassFromString("SPTAuthSessionImplementation") {
-        let required: [Selector] = [ Selector(("logout")), Selector(("logoutWithReason:")), Selector(("callSessionDidLogoutOnDelegateWithReason:")), Selector(("logWillLogoutEventWithLogoutReason:")), Selector(("destroy")) ]
-        if required.allSatisfy({ classHasInstanceMethod(cls, $0) }) { SessionLogoutAuthHookGroup().activate() }
+        let required: [Selector] = [
+            Selector(("logout")),
+            Selector(("logoutWithReason:")),
+            Selector(("callSessionDidLogoutOnDelegateWithReason:")),
+            Selector(("logWillLogoutEventWithLogoutReason:")),
+            Selector(("destroy")),
+        ]
+        let ok = required.allSatisfy { classHasInstanceMethod(cls, $0) }
+        if ok {
+            SessionLogoutAuthHookGroup().activate()
+            log("Activated auth hooks")
+        } else {
+            log("Skipped auth hooks (missing selector)")
+        }
+    } else {
+        log("Skipped auth hooks (missing class SPTAuthSessionImplementation)")
     }
+
+    // Connectivity hooks
     if let cls = NSClassFromString("_TtC24Connectivity_SessionImpl18SessionServiceImpl") {
-        let required: [Selector] = [ Selector(("automatedLogoutThenLogin")), Selector(("userInitiatedLogout")), Selector(("sessionDidLogout:withReason:")) ]
-        if required.allSatisfy({ classHasInstanceMethod(cls, $0) }) { SessionLogoutConnectivityHookGroup().activate() }
+        let required: [Selector] = [
+            Selector(("automatedLogoutThenLogin")),
+            Selector(("userInitiatedLogout")),
+            Selector(("sessionDidLogout:withReason:")),
+        ]
+        let ok = required.allSatisfy { classHasInstanceMethod(cls, $0) }
+        if ok {
+            SessionLogoutConnectivityHookGroup().activate()
+            log("Activated connectivity hooks")
+        } else {
+            log("Skipped connectivity hooks (missing selector)")
+        }
+    } else {
+        log("Skipped connectivity hooks (missing class SessionServiceImpl)")
     }
+
+    // Ably hooks
     if let cls = NSClassFromString("ARTWebSocketTransport") {
-        let required: [Selector] = [ Selector(("webSocket:didReceiveMessage:")), Selector(("webSocket:didFailWithError:")) ]
-        if required.allSatisfy({ classHasInstanceMethod(cls, $0) }) { SessionLogoutAblyHookGroup().activate() }
+        let required: [Selector] = [
+            Selector(("webSocket:didReceiveMessage:")),
+            Selector(("webSocket:didFailWithError:")),
+        ]
+        let ok = required.allSatisfy { classHasInstanceMethod(cls, $0) }
+        if ok {
+            SessionLogoutAblyHookGroup().activate()
+            log("Activated Ably hooks")
+        } else {
+            log("Skipped Ably hooks (missing selector)")
+        }
+    } else {
+        log("Skipped Ably hooks (missing class ARTWebSocketTransport)")
     }
-    if let cls = NSClassFromString("NSURLSessionTask"), classHasInstanceMethod(cls, #selector(URLSessionTask.resume)) { SessionLogoutNetworkHookGroup().activate() }
+
+    // Network hooks
+    if let cls = NSClassFromString("NSURLSessionTask"), classHasInstanceMethod(cls, #selector(URLSessionTask.resume)) {
+        SessionLogoutNetworkHookGroup().activate()
+        log("Activated URLSessionTask hooks")
+    } else {
+        log("Skipped URLSessionTask hooks (missing selector)")
+    }
 }
 
-@inline(__always) func eeveeEnvFlag(_ name: String) -> Bool {
+// MARK: - Bootstrap breadcrumbs
+@inline(__always)
+func eeveeBreadcrumb(_ label: String) {
+    let path = NSTemporaryDirectory() + "eeveespotify_boot.txt"
+    let ts = Date().description
+    let line = "[\(ts)] \(label)\n"
+    if let data = line.data(using: .utf8) {
+        if FileManager.default.fileExists(atPath: path), let h = FileHandle(forWritingAtPath: path) {
+            h.seekToEndOfFile(); h.write(data); try? h.close()
+        } else {
+            try? data.write(to: URL(fileURLWithPath: path))
+        }
+    }
+}
+
+@inline(__always)
+func eeveeEnvFlag(_ name: String) -> Bool {
     guard let v = getenv(name) else { return false }
-    return String(cString: v).lowercased() == "1" || String(cString: v).lowercased() == "true"
+    let s = String(cString: v).lowercased()
+    return s == "1" || s == "true" || s == "yes" || s == "y"
 }
 
-// MARK: - Tweak Entry (The Magic 3.0 Second Delay Strategy)
 struct EeveeSpotify: Tweak {
     static let version = "6.6.2"
     static let buildNumber = "1"
     
     static var hookTarget: VersionHookTarget {
         let version = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
+        
+        NSLog("[EeveeSpotify] Detected Spotify version: \(version)")
+        
         switch version {
-        case "9.0.48": return .lastAvailableiOS15
-        case "8.9.8": return .lastAvailableiOS14
-        case _ where version.contains("9.1"): return .v91
-        default: return .latest
+        case "9.0.48":
+            return .lastAvailableiOS15
+        case "8.9.8":
+            return .lastAvailableiOS14
+        case _ where version.contains("9.1"):
+            // 9.1.x versions don't have offline content helper classes
+            return .v91
+        default:
+            return .latest
         }
     }
-
+    
     init() {
-        // שיטת YTLite: השהייה קשיחה של 3 שניות לפני כל ניסיון נגיעה במסך
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            // חיפוש בטוח של החלון הראשי אחרי 3 שניות (כשהכל בטוח סיים לעלות)
-            guard let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
-                  let window = windowScene.windows.first(where: { $0.isKeyWindow }),
-                  let rootVC = window.rootViewController else { return }
-            
-            // מוצאים את המסך העליון ביותר כרגע כדי להלביש עליו
-            var topController = rootVC
-            while let presented = topController.presentedViewController {
-                topController = presented
-            }
-            
-            // יצירה והצגה של המסך המעוצב שלנו
-            let splashVC = AviSplashViewController()
-            splashVC.modalPresentationStyle = .overFullScreen
-            splashVC.modalTransitionStyle = .crossDissolve
-            topController.present(splashVC, animated: true)
-        }
-        
-        // --- קוד הפריצה המקורי ממשיך כרגיל ---
+        eeveeBreadcrumb("Tweak init() entered")
+        // Reset per-launch bootstrap state; this MUST NOT persist across restarts.
+        // Otherwise Spotify can get stuck on splash because bootstrap is cancelled.
         UserDefaults.hasPatchedBootstrap = false
-        if eeveeEnvFlag("EEVEE_DISABLE_ALL") { return }
 
+        // Global kill-switch for debugging “instant crash / no logs”.
+        // If setting this makes Spotify launch, the crash is definitely in one of our hook activations.
+        if eeveeEnvFlag("EEVEE_DISABLE_ALL") {
+            eeveeBreadcrumb("EEVEE_DISABLE_ALL=1 -> returning without hooks")
+            return
+        }
+
+        // Activate session logout protection first.
+        // NOTE: On some Spotify 9.1.x builds, Orion can still crash even if a selector exists
+        // (e.g., method type encoding changes). Be conservative for 9.1.x.
         if EeveeSpotify.hookTarget == .v91 {
+            // Minimal protection only (safest hook)
             activateSessionLogoutProtection(minimal: true)
-            if UserDefaults.patchType.isPatching { PremiumBootstrapGroup().activate() }
-            if UserDefaults.lyricsSource.isReplacingLyrics {
-                BaseLyricsGroup().activate()
-                V91LyricsGroup().activate()
+        } else {
+            activateSessionLogoutProtection(minimal: false)
+        }
+
+        let spotifyVersion = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
+        let spotifyBuild = Bundle.main.infoDictionary!["CFBundleVersion"] as? String ?? "?"
+        let iosVersion = UIDevice.current.systemVersion
+        let deviceModel = UIDevice.current.model
+
+        writeDebugLog("=== EeveeSpotify \(EeveeSpotify.version) (build \(EeveeSpotify.buildNumber)) starting ===")
+        writeDebugLog("[INIT] Spotify: \(spotifyVersion) (build \(spotifyBuild))")
+        writeDebugLog("[INIT] iOS: \(iosVersion), Device: \(deviceModel)")
+        writeDebugLog("[INIT] Hook target: \(EeveeSpotify.hookTarget)")
+        writeDebugLog("[INIT] Patch type: \(UserDefaults.patchType)")
+        writeDebugLog("[INIT] Lyrics source: \(UserDefaults.lyricsSource)")
+        writeDebugLog("[INIT] tweakInitTime: \(tweakInitTime)")
+
+        // Verify critical hook targets exist
+        let hookTargets: [(String, String)] = [
+            ("SPTAuthSessionImplementation", "SPTAuthSession"),
+            ("_TtC24Connectivity_SessionImpl18SessionServiceImpl", "SessionServiceImpl"),
+            ("SPTAuthLegacyLoginControllerImplementation", "LegacyLoginController"),
+            ("_TtC24Connectivity_SessionImplP33_831B98CC28223E431E21CD27ADD20AF222OauthAccessTokenBridge", "OauthAccessTokenBridge"),
+            ("ARTWebSocketTransport", "AblyWebSocket"),
+            ("ARTSRWebSocket", "AblySRWebSocket"),
+        ]
+        var allFound = true
+        for (className, label) in hookTargets {
+            if NSClassFromString(className) != nil {
+                writeDebugLog("[INIT] \(label) class found")
+            } else {
+                writeDebugLog("[INIT] MISSING class for \(label): \(className)")
+                allFound = false
             }
-            UniversalSettingsIntegrationProfileGroup().activate()
-            UniversalSettingsIntegrationNavGroup().activate()
+        }
+        if allFound {
+            writeDebugLog("[INIT] All \(hookTargets.count) hook targets verified")
+        }
+
+        // For 9.1.x, activate premium patching and lyrics
+        if EeveeSpotify.hookTarget == .v91 {
+            
+            // Premium patching (9.1.x)
+            // Always activate the *bootstrap interceptor*; it is required for premium patching.
+            if UserDefaults.patchType.isPatching {
+                PremiumBootstrapGroup().activate()
+                writeDebugLog("[INIT] Activated PremiumBootstrapGroup")
+
+                // Optional UI hooks (safe-gated)
+                if let hub = NSClassFromString("HUBViewModelBuilderImplementation"),
+                   class_getInstanceMethod(hub, Selector(("addJSONDictionary:"))) != nil {
+                    PremiumUIHooksGroup().activate()
+                } else {
+                    writeDebugLog("[INIT] Skipped PremiumUIHooksGroup (missing HUBViewModelBuilderImplementation/addJSONDictionary:)")
+                }
+            }
+            
+            let lyricsEnabled = UserDefaults.lyricsSource.isReplacingLyrics
+            
+            // Lyrics hooks (guarded)
+            if lyricsEnabled {
+                let fullscreenOK: Bool = {
+                    // For 9.1.x, targetName resolves to Lyrics_FullscreenElementPageImpl.FullscreenElementViewController
+                    if let cls = NSClassFromString("Lyrics_FullscreenElementPageImpl.FullscreenElementViewController") {
+                        return class_getInstanceMethod(cls, #selector(UIViewController.viewDidLoad)) != nil
+                    }
+                    return false
+                }()
+
+                let npvOK: Bool = {
+                    if let cls = NSClassFromString("NowPlaying_ScrollImpl.NPVScrollViewController") {
+                        return class_getInstanceMethod(cls, #selector(UIViewController.viewWillAppear(_:))) != nil
+                            && class_getInstanceMethod(cls, #selector(UIViewController.viewWillDisappear(_:))) != nil
+                    }
+                    return false
+                }()
+
+                if fullscreenOK {
+                    BaseLyricsGroup().activate()
+                } else {
+                    writeDebugLog("[INIT] Skipped BaseLyricsGroup (fullscreen VC missing)")
+                }
+
+                if npvOK {
+                    V91LyricsGroup().activate()
+                } else {
+                    writeDebugLog("[INIT] Skipped V91LyricsGroup (NPVScrollViewController missing)")
+                }
+
+            }
+            
+            // Settings integration (guarded)
+            if let cls = NSClassFromString("ProfileSettingsSection"),
+               class_getInstanceMethod(cls, Selector(("numberOfRows"))) != nil,
+               class_getInstanceMethod(cls, Selector(("didSelectRow:"))) != nil,
+               class_getInstanceMethod(cls, Selector(("cellForRow:"))) != nil {
+
+                UniversalSettingsIntegrationProfileGroup().activate()
+
+                if NSClassFromString("SettingsViewController") != nil {
+                    UniversalSettingsIntegrationSettingsVCGroup().activate()
+                }
+                // RootSettingsViewController was removed in some 9.1.x builds (9.1.36).
+                // Only activate if the class exists.
+                if NSClassFromString("RootSettingsViewController") != nil {
+                    UniversalSettingsIntegrationRootSettingsVCGroup().activate()
+                }
+                // UINavigationController exists; this hook is generic and safe.
+                UniversalSettingsIntegrationNavGroup().activate()
+
+            } else {
+                writeDebugLog("[INIT] Skipped settings integration (ProfileSettingsSection API mismatch)")
+            }
+            // Also activate the banner for 9.1.x to ensure visibility if menu is missing
+            // V91SettingsIntegrationGroup().activate()
+            
+            NSLog("[EeveeSpotify] Initialization complete for 9.1.x")
+            
+            // Show startup popup with status - DISABLED FOR PRODUCTION
+            // DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            //     let lyricsStatus = lyricsEnabled ? "✅ ENABLED (\(UserDefaults.lyricsSource.rawValue))" : "❌ DISABLED"
+            //     let sourceName = UserDefaults.lyricsSource.description
+            //     let message = """
+            //     EeveeSpotify \(EeveeSpotify.version)
+            //     Spotify 9.1.x EXPERIMENTAL
+            //     
+            //     📝 Lyrics: \(lyricsStatus)
+            //     Source: \(sourceName)
+            //     
+            //     🔍 Tap 'Start' to capture network requests.
+            //     
+            //     After ~15 requests you'll see if 9.1.6 makes lyrics network calls.
+            //     
+            //     NOTE: If lyrics button is missing, try switching to Musixmatch or Genius in Settings.
+            //     """
+            //     
+            //     PopUpHelper.showPopUp(
+            //         message: message,
+            //         buttonText: "Start Debug",
+            //         secondButtonText: "Skip",
+            //         onPrimaryClick: {
+            //             // Start capturing URLs
+            //             DataLoaderServiceHooks_startCapturing()
+            //             
+            //             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            //                 PopUpHelper.showPopUp(
+            //                     message: "🔍 Capturing started!\n\nNow open ANY song and tap lyrics.\n\nWait ~15 seconds for results.",
+            //                     buttonText: "OK"
+            //                 )
+            //             }
+            //         }
+            //     )
+            // }
+            
             return
         }
         
-        activateSessionLogoutProtection(minimal: false)
-        if UserDefaults.experimentsOptions.showInstagramDestination { InstgramDestinationGroup().activate() }
-        if UserDefaults.darkPopUps { DarkPopUps().activate() }
-        if UserDefaults.patchType.isPatching { activatePremiumPatchingGroup() }
+        // For other versions, activate all features normally
+        if UserDefaults.experimentsOptions.showInstagramDestination {
+            InstgramDestinationGroup().activate()
+        }
+        
+        if UserDefaults.darkPopUps {
+            DarkPopUps().activate()
+        }
+        
+        if UserDefaults.patchType.isPatching {
+            activatePremiumPatchingGroup()
+        }
+        
         if UserDefaults.lyricsSource.isReplacingLyrics {
             BaseLyricsGroup().activate()
             LyricsErrorHandlingGroup().activate()
-            if EeveeSpotify.hookTarget == .latest { ModernLyricsGroup().activate() }
-            else { LegacyLyricsGroup().activate() }
+            
+            if EeveeSpotify.hookTarget == .latest {
+                ModernLyricsGroup().activate()
+            }
+            else {
+                LegacyLyricsGroup().activate()
+            }
         }
         
+        // Always activate settings integration (except for 9.1.x which exits early above)
         UniversalSettingsIntegrationProfileGroup().activate()
         UniversalSettingsIntegrationSettingsVCGroup().activate()
-        if NSClassFromString("RootSettingsViewController") != nil { UniversalSettingsIntegrationRootSettingsVCGroup().activate() }
+        if NSClassFromString("RootSettingsViewController") != nil {
+            UniversalSettingsIntegrationRootSettingsVCGroup().activate()
+        }
         UniversalSettingsIntegrationNavGroup().activate()
         SettingsIntegrationGroup().activate()
     }
